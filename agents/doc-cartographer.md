@@ -10,7 +10,7 @@ description: |
   from doc-updater (which refreshes README/codemap after a code change): this agent
   builds architecture understanding and diagrams from scratch. It reads and writes
   docs; it does not modify product code.
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "mcp__gitnexus__impact", "mcp__gitnexus__context"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "mcp__graphify__query_graph", "mcp__graphify__god_nodes", "mcp__graphify__shortest_path", "mcp__graphify__get_neighbors"]
 model: opus
 memory: project
 maxTurns: 30

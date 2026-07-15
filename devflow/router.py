@@ -28,22 +28,38 @@ AUTO = "auto"
 HITL = "hitl"
 
 
-def lane_for(ticket: Ticket) -> str:
-    """Pure function: map a ticket to 'auto' or 'hitl'. `auto` label wins only if
-    present; everything else (including `hitl` and unlabeled) is HITL, which routes
-    through the research stage. Never returns auto for an unlabeled ticket."""
+def _config_labels() -> tuple[str, str]:
+    """Read renamed lane labels from devflow.config.json (repo cwd), if present.
+    This is what makes the README's 'rename auto/hitl to whatever your team uses'
+    real — the lane semantics never change, only the label spellings."""
+    import json
+    cfg = Path("devflow.config.json")
+    if cfg.exists():
+        try:
+            labels = json.loads(cfg.read_text(encoding="utf-8")).get("labels", {})
+            return labels.get("auto", AUTO).lower(), labels.get("hitl", HITL).lower()
+        except Exception:
+            pass  # malformed config → safe defaults
+    return AUTO, HITL
+
+
+def lane_for(ticket: Ticket, auto_label: str = AUTO, hitl_label: str = HITL) -> str:
+    """Pure function: map a ticket to 'auto' or 'hitl'. The auto label wins only if
+    present; everything else (including the hitl label and unlabeled) is HITL, which
+    routes through the research stage. Never returns auto for an unlabeled ticket."""
     labels = {l.lower() for l in ticket["labels"]}
-    if AUTO in labels and HITL not in labels:   # explicit auto, and not also flagged hitl
+    if auto_label in labels and hitl_label not in labels:   # explicit auto, not also flagged hitl
         return AUTO
     return HITL
 
 
 def route(adapter_name: str, label: str | None = None) -> dict[str, list[Ticket]]:
     adapter = get(adapter_name)
+    auto_label, hitl_label = _config_labels()
     tickets = adapter.list_open_tickets(label)
     lanes: dict[str, list[Ticket]] = {AUTO: [], HITL: []}
     for t in tickets:
-        lanes[lane_for(t)].append(t)
+        lanes[lane_for(t, auto_label, hitl_label)].append(t)
     return lanes
 
 
@@ -57,7 +73,12 @@ def _self_check() -> None:
     assert lane_for(tk(["AUTO"])) == AUTO, "label match is case-insensitive"
     assert lane_for(tk(["auto", "hitl"])) == HITL, "hitl wins the tie — never auto-run a hitl ticket"
     assert lane_for(tk(["bug", "auto", "p1"])) == AUTO, "auto among other labels still routes auto"
-    print("router self-check OK — lane mapping + no-escalation invariant verified")
+    # renamed labels (devflow.config.json "labels" key) keep the same semantics
+    assert lane_for(tk(["bot-ok"]), "bot-ok", "review-me") == AUTO, "renamed auto label routes auto"
+    assert lane_for(tk(["auto"]), "bot-ok", "review-me") == HITL, "old spelling no longer routes auto after rename"
+    assert lane_for(tk([]), "bot-ok", "review-me") == HITL, "unlabeled stays HITL under renamed labels"
+    assert lane_for(tk(["bot-ok", "review-me"]), "bot-ok", "review-me") == HITL, "renamed hitl still wins the tie"
+    print("router self-check OK — lane mapping + no-escalation invariant + renamed labels verified")
 
 
 def main() -> int:

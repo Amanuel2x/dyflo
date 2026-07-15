@@ -44,7 +44,7 @@ def get(name: str) -> Adapter:
         # Only swallow a missing-adapter error, not an import error inside the adapter.
         if e.name and e.name.endswith(name):
             import pkgutil
-            avail = [m.name for m in pkgutil.iter_modules(__path__) if m.name != "envelope"]
+            avail = [m.name for m in pkgutil.iter_modules(__path__) if m.name != "selfcheck"]
             raise ValueError(f"unknown ticket adapter {name!r}; available: {avail}") from None
         raise
 

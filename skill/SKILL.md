@@ -38,7 +38,7 @@ ticket → adapter → ROUTER (by label)
 
 | Lane | Label | Who runs it | Human gate |
 |------|-------|-------------|------------|
-| Autonomous | `auto` | `agent-orchestration` watcher, headless `claude -p` | none (PR only; a human merges) |
+| Autonomous | `auto` | `agent-orchestration` watcher, headless `claude -p` | none (PR only; a human merges — run `/code-review <pr#>` first, plus `/security-review` if the diff touches auth/secrets/validation) |
 | HITL | `hitl` / unlabeled | research stage → TRIP | ADR approval, plan, diff |
 
 The router **only downgrades** (research may relabel `hitl`→`auto`). It never
@@ -48,8 +48,9 @@ invariant of the whole system.
 ## Prerequisites (bootstrap once per repo — `devflow.sh` does this)
 
 1. **Graph:** `graphify update .` at repo root → `graphify-out/graph.json`. Enable
-   the `graphify` MCP server (see `mcp-servers.optional.json`) for the interactive
-   lane. Keep it current: `graphify hook install` (post-commit re-index, AST-only).
+   the `graphify` MCP server (install.sh registers it; `mcp-server.json` has the
+   block for manual setup). Keep it current: `graphify hook install` (post-commit
+   re-index, AST-only).
 2. **Ponytail in the autonomous lane:** vendor ponytail's `AGENTS.md` into the repo
    (the watcher go-prompt already treats CLAUDE.md/AGENTS.md as mandatory). See the
    `vendor-ponytail` reference.
@@ -70,16 +71,18 @@ graphify affected "<symbol>"      # reverse traversal: what breaks if this chang
 graphify path "<A>" "<B>"         # how two things connect
 graphify explain "<symbol>"       # a node and its neighbors
 ```
-Or via the MCP tools in an interactive session: `get_pr_impact`, `affected`,
-`shortest_path`, `god_nodes`. Record: how many nodes are impacted, whether any
+Or via the MCP tools in an interactive session: `get_pr_impact`, `query_graph`,
+`get_neighbors`, `shortest_path`, `god_nodes`. Record: how many nodes are impacted, whether any
 **god node** (architectural hotspot) is in scope, and whether the change sits on a
 **boundary to another system**. This is the decision driver — small local blast
 radius vs. wide cross-module ripple is what separates the two exits below.
 
 ### 2 — Pattern match (vendored catalog, live fallback)
 ```bash
-python3 skills/devflow/patterns/lookup.py "<ticket title + body + blast-radius summary>"
+python3 "$DEVFLOW_HOME/devflow/patterns/lookup.py" "<ticket title + body + blast-radius summary>"
 ```
+(`DEVFLOW_HOME` is the DevFlow repo path — install.sh stamps it in a comment at the
+bottom of this file.)
 - A ranked hit (score ≥ threshold) → candidate pattern(s), each cited to a
   canonical URL (GoF / Fowler PoEAA / microservices.io / Hohpe EIP).
 - A **MISS** → fall back to live retrieval for THIS ticket only: `WebSearch` and/or
@@ -87,7 +90,12 @@ python3 skills/devflow/patterns/lookup.py "<ticket title + body + blast-radius s
   the vendored index already covers them; live retrieval is for genuinely novel shapes.
 
 ### 3 — Ponytail gate (mandatory — the escape hatch)
-Before writing any ADR, ask the ponytail question: **does this change even need a
+**Security carve-out first:** if the ticket or its blast radius touches auth,
+secrets/credentials, or input validation, it stays `hitl` regardless of size —
+small diff ≠ safe diff, and declining to downgrade is not escalation, so the
+only-downgrades invariant holds. Run `/security-review` as part of the HITL pass.
+
+Otherwise ask the ponytail question: **does this change even need a
 pattern?** A small, local, single-module change with a tight blast radius and no
 god node in scope does NOT. If so:
 - Emit `NO_PATTERN` with a one-line reason.
@@ -100,9 +108,9 @@ staples "Strategy Pattern" onto a null check. Bias toward downgrading — most t
 are small.
 
 ### 4 — Draft ADR (only if a pattern is warranted)
-Delegate to the `architect` agent (it owns ADR authoring, trade-off analysis, and
-has WebSearch/context7 for the fallback path) — or, for a lightweight ticket, write
-it directly. The ADR uses the adr.github.io format:
+Delegate to the `backend-architect` agent if installed (design/trade-off analysis
+is its job) — or, for a lightweight ticket, write it directly. The ADR uses the
+adr.github.io format:
 
 ```markdown
 # ADR NNN: <title>
@@ -128,9 +136,9 @@ Surface the draft ADR for approval. On approval, `/TRIP-1-plan <the ADR>` picks 
 up; the human gates then hold at plan and at diff, and `/TRIP-3-release` opens the PR.
 
 ## Reference
-- `patterns/catalog.json` — vendored pattern index (4 canonical sources).
-- `patterns/lookup.py` — matcher + `--self-check` (ranking + miss).
-- `adapters/` — ticket-source adapters (agnostic ingestion; GitHub first).
-- `references/vendor-ponytail.md` — how ponytail reaches the autonomous lane.
+- `$DEVFLOW_HOME/devflow/patterns/catalog.json` — vendored pattern index (4 canonical sources).
+- `$DEVFLOW_HOME/devflow/patterns/lookup.py` — matcher + `--self-check` (ranking + miss).
+- `$DEVFLOW_HOME/devflow/adapters/` — ticket-source adapters (agnostic ingestion; GitHub first).
+- `references/vendor-ponytail.md` (beside this file) — how ponytail reaches the autonomous lane.
 - `agent-orchestration` skill — the autonomous watcher (separate skill).
 - TRIP skills (`/TRIP-1-plan`, `/TRIP-2-implement`, `/TRIP-3-release`) — the HITL lane.

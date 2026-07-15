@@ -28,7 +28,7 @@ Claude Code session and obeys it because the go-prompt says it must.
 **How.**
 
 ```bash
-skills/devflow/references/vendor-ponytail.sh <repo-root>
+bash "$DEVFLOW_HOME/devflow/vendor-ponytail.sh" <repo-root>
 ```
 
 (`devflow.sh --bootstrap` runs this for you.) It:

@@ -18,12 +18,13 @@ set -euo pipefail
 HOME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT=""
 LINK=1
-for a in "$@"; do
-  case "$a" in
-    --project) shift; PROJECT="${1:?--project needs a DIR}";;
-    --project=*) PROJECT="${a#*=}";;
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --project) PROJECT="${2:?--project needs a DIR}"; shift;;
+    --project=*) PROJECT="${1#*=}";;
     --no-link) LINK=0;;
   esac
+  shift
 done
 
 say() { printf '\033[1m%s\033[0m\n' "$*"; }

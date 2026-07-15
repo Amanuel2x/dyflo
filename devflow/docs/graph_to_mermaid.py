@@ -7,8 +7,9 @@ Output is theme-neutral Mermaid (renders in GitHub, Obsidian, any Markdown) — 
 the dark-themed interactive HTML graphify's callflow export ships (that's for a
 browser). Three views, pick with --view:
 
-  modules    file/module-level dependency graph (who imports/contains whom)
+  modules    file/module dependency map: import edges + containment structure
   calls      function call graph (who calls whom), optionally scoped to a node
+             (solid arrow = direct call/containment, dotted = indirect relation)
   community  subsystem clusters (graphify's Leiden communities) as subgraphs
 
 Usage:
@@ -29,7 +30,10 @@ from pathlib import Path
 CALL_RELS = {"calls", "indirect_call", "references", "uses", "imports",
              "imports_from", "re_exports", "inherits", "extends", "implements",
              "mixes_in", "embeds"}
-CONTAIN_RELS = {"contains"}
+# modules view = actual dependency map: imports between files + containment structure
+MODULE_RELS = {"contains", "imports", "imports_from", "re_exports"}
+# rendered as solid arrows; everything else in a view is dotted (indirect relation)
+SOLID_RELS = {"calls", "contains", "imports", "imports_from"}
 
 
 def _load(path: str) -> dict:
@@ -79,7 +83,7 @@ def _bfs(edges: list[tuple[str, str, str]], focus: str, depth: int) -> set[str]:
 
 def render(g: dict, view: str, focus: str | None, depth: int, max_nodes: int) -> str:
     by_id = _nodes_by_id(g)
-    rels = CONTAIN_RELS if view == "modules" else CALL_RELS
+    rels = MODULE_RELS if view == "modules" else CALL_RELS
     edges = _edges(g, rels)
 
     keep = set(by_id)
@@ -115,7 +119,7 @@ def render(g: dict, view: str, focus: str | None, depth: int, max_nodes: int) ->
         if key in seen_edge:
             continue
         seen_edge.add(key)
-        arrow = "-->" if r in CALL_RELS - {"calls"} else "-->"
+        arrow = "-->" if r in SOLID_RELS else "-.->"   # dotted = indirect relation
         lbl = "" if r in {"calls", "contains"} else f"|{r}|"
         lines.append(f"    {_safe(s)} {arrow}{lbl} {_safe(t)}")
     lines.append("```")
@@ -156,6 +160,7 @@ def _self_check() -> None:
             {"source": "a", "target": "b", "relation": "calls"},
             {"source": "b", "target": "c", "relation": "calls"},
             {"source": "a", "target": "c", "relation": "references"},
+            {"source": "a", "target": "c", "relation": "imports"},
         ],
     }
     out = render(g, "calls", None, 2, 40)
@@ -163,8 +168,12 @@ def _self_check() -> None:
     assert "flowchart TD" in out
     assert "handle()" in out and "auth()" in out, "labels present"
     assert out.count("-->") >= 2, "edges rendered"
-    # relation label shown for non-call edges
-    assert "|references|" in out, "non-call rel labeled"
+    # indirect relations are dotted and labeled
+    assert "-.->|references|" in out, "non-call rel dotted + labeled"
+    # modules view is a dependency map: imports edges in (solid + labeled), call-side out
+    mods = render(g, "modules", None, 2, 40)
+    assert "-->|imports|" in mods, "modules view renders import edges"
+    assert "|references|" not in mods, "modules view excludes call-side relations"
     # focus scopes the graph: focusing db + depth 1 drops the far node 'a'? a->c so a is a neighbor; use depth 0-ish via 'b'
     scoped = render(g, "calls", "auth", 1, 40)
     assert "auth()" in scoped

@@ -97,8 +97,7 @@ re-run as the code evolves (the graph re-indexes on commit).
 ```json
 {
   "adapter": "github",
-  "labels": { "auto": "auto", "hitl": "hitl" },
-  "graph": "graphify-out/graph.json"
+  "labels": { "auto": "auto", "hitl": "hitl" }
 }
 ```
 

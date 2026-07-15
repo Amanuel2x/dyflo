@@ -47,16 +47,19 @@ bootstrap() {
     cat > "$CONFIG" <<JSON
 {
   "adapter": "github",
-  "labels": { "auto": "auto", "hitl": "hitl" },
-  "graph": "graphify-out/graph.json"
+  "labels": { "auto": "auto", "hitl": "hitl" }
 }
 JSON
     echo "-- wrote $CONFIG (edit adapter/labels as needed)"
   fi
 
-  echo "-- ensure labels exist on the source (GitHub example):"
-  echo "     gh label create auto --description 'DevFlow: autonomous lane' || true"
-  echo "     gh label create hitl --description 'DevFlow: human-in-the-loop lane' || true"
+  echo "-- ensuring lane labels exist on the source…"
+  if command -v gh >/dev/null 2>&1 && [ "$ADAPTER" = "github" ]; then
+    gh label create auto --description 'DevFlow: autonomous lane' 2>/dev/null && echo "   created label: auto" || echo "   label auto exists (or no gh repo)"
+    gh label create hitl --description 'DevFlow: human-in-the-loop lane' 2>/dev/null && echo "   created label: hitl" || echo "   label hitl exists (or no gh repo)"
+  else
+    echo "   (non-github adapter — create the auto/hitl labels on your ticket source manually)"
+  fi
   echo "== bootstrap done. Next: devflow.sh --assign  or  devflow.sh --self =="
 }
 
@@ -68,6 +71,10 @@ do_self() {
 
 do_assign() {
   local id="${1:-}"
+  # freshness precondition: blast radius must read a CURRENT graph. Refreshing at
+  # the read covers every staleness source (pull, rebase, reset, out-of-band edits)
+  # that git hooks can't — and costs the same incremental update they would run.
+  [ -d "$REPO_ROOT/graphify-out" ] && ( cd "$REPO_ROOT" && graphify update . 2>&1 | grep -E "Rebuilt" || true )
   if [ -n "$id" ]; then
     echo "== research stage on ticket #$id (HITL) =="
     echo "The devflow skill will, for ticket #$id:"
@@ -83,6 +90,7 @@ do_assign() {
   echo "Next:"
   echo "  • AUTO tickets  → start the watcher:  python3 <name>-watcher.py"
   echo "  • HITL tickets  → devflow.sh --assign <id>   (runs the research stage)"
+  echo "  • before merging an auto-lane PR → /code-review <pr#>  (+ /security-review if it touches auth/secrets/validation)"
 }
 
 do_check() {
