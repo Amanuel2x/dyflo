@@ -60,7 +60,7 @@ color: cyan
 
     3. Generate diagrams from the graph with the helper (never by hand unless the
        helper can't express it):
-         python3 <DEVFLOW_HOME>/devflow/docs/graph_to_mermaid.py \
+         python3 <DYFLO_HOME>/dyflo/docs/graph_to_mermaid.py \
                  --graph graphify-out/graph.json --view <modules|calls|community> \
                  [--focus <node>] [--depth N] [--max-nodes 40]
        Typical doc uses three views:

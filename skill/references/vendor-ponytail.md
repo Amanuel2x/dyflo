@@ -28,10 +28,10 @@ Claude Code session and obeys it because the go-prompt says it must.
 **How.**
 
 ```bash
-bash "$DEVFLOW_HOME/devflow/vendor-ponytail.sh" <repo-root>
+bash "$DYFLO_HOME/dyflo/vendor-ponytail.sh" <repo-root>
 ```
 
-(`devflow.sh --bootstrap` runs this for you.) It:
+(`dyflo.sh --bootstrap` runs this for you.) It:
 - finds the newest installed ponytail `AGENTS.md` (never hardcodes a version),
 - writes a marker-fenced block into `<repo>/AGENTS.md`,
 - is idempotent — re-running (or after a ponytail upgrade) refreshes the block in

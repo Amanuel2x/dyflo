@@ -2,7 +2,7 @@
 GitHub ticket adapter — wraps the `gh` CLI (same auth path the watcher uses).
 
 No new dependency: `gh` is already required by agent-orchestration's go-prompts.
-Repo is taken from $DEVFLOW_REPO or the current dir's `gh repo view`.
+Repo is taken from $DYFLO_REPO or the current dir's `gh repo view`.
 """
 from __future__ import annotations
 
@@ -14,14 +14,14 @@ from . import Ticket, normalize
 
 
 def _repo() -> str:
-    repo = os.getenv("DEVFLOW_REPO")
+    repo = os.getenv("DYFLO_REPO")
     if repo:
         return repo
     out = subprocess.run(["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
                          capture_output=True, text=True)
     repo = out.stdout.strip()
     if not repo:
-        raise RuntimeError("no repo: set $DEVFLOW_REPO or run inside a gh-authed repo")
+        raise RuntimeError("no repo: set $DYFLO_REPO or run inside a gh-authed repo")
     return repo
 
 

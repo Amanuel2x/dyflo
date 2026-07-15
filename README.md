@@ -1,4 +1,4 @@
-# DevFlow
+# Dyflo
 
 A repository-agnostic hybrid dev loop. Point it at **any** project and it routes
 incoming tickets into two lanes:
@@ -10,7 +10,7 @@ incoming tickets into two lanes:
   and emits a **draft ADR** you approve. Then a human-gated plan → implement →
   release flow.
 
-One launcher (`devflow`) is the door: from it you **assign** work (hand off a
+One launcher (`dyflo`) is the door: from it you **assign** work (hand off a
 ticket, it routes) or **do it yourself** (an interactive session with the codebase
 graph, ponytail, and TRIP all loaded).
 
@@ -39,14 +39,14 @@ invariant.
 | Code-writing discipline | [ponytail](https://github.com/DietrichGebert/ponytail) | "lazy senior dev" ruleset, vendored into the repo for the headless lane |
 | Human-gated flow | [TRIP](https://github.com/PiLastDigit/TRIP-workflow) | `/TRIP-1-plan → 2-implement → 3-release`, seeded by the ADR |
 
-DevFlow itself is the **router** and the **research stage** — the two pieces none
+Dyflo itself is the **router** and the **research stage** — the two pieces none
 of those tools provide — plus the glue that makes them one loop.
 
 ## Install
 
 ```bash
-git clone <this-repo> ~/devflow && cd ~/devflow
-./install.sh              # graphify + MCP + /devflow skill + `devflow` on PATH
+git clone <this-repo> ~/dyflo && cd ~/dyflo
+./install.sh              # graphify + MCP + /dyflo skill + `dyflo` on PATH
 ```
 
 Prereqs: `uv` (or `pipx`) for Graphify, `gh` for the GitHub adapter, the `claude`
@@ -61,38 +61,38 @@ Project-scoped skill instead of global:
 
 ## Wrap a repo
 
-From inside the project you want to run DevFlow on:
+From inside the project you want to run Dyflo on:
 
 ```bash
 cd /path/to/your/project
-devflow --bootstrap       # build the graph, install re-index hook, vendor ponytail, write config, ensure labels
+dyflo --bootstrap       # build the graph, install re-index hook, vendor ponytail, write config, ensure labels
 ```
 
 Then:
 
 ```bash
-devflow --assign          # route all open tickets into auto / hitl lanes
-devflow --assign 42       # run the research stage on ticket #42 → draft ADR (or downgrade)
-devflow --self            # open an equipped interactive session and work it yourself
-devflow --docs            # document the repo → docs/ARCHITECTURE.md with Mermaid diagrams
-devflow --docs auth       # same, focused on a subsystem or entry point
-devflow --check           # run the engine self-checks
+dyflo --assign          # route all open tickets into auto / hitl lanes
+dyflo --assign 42       # run the research stage on ticket #42 → draft ADR (or downgrade)
+dyflo --self            # open an equipped interactive session and work it yourself
+dyflo --docs            # document the repo → docs/ARCHITECTURE.md with Mermaid diagrams
+dyflo --docs auth       # same, focused on a subsystem or entry point
+dyflo --check           # run the engine self-checks
 ```
 
 ## Documentation from the graph
 
-`devflow --docs` runs the **doc-cartographer** agent: it reads the codebase's
+`dyflo --docs` runs the **doc-cartographer** agent: it reads the codebase's
 knowledge graph and writes `docs/ARCHITECTURE.md` with Mermaid diagrams generated
 from the *real* structure — a system map (subsystems), a module dependency map, and
 call-flow diagrams per entry point — every claim cited to `file:line`, nothing from
 memory. Diagrams are portable Mermaid (render in GitHub/Obsidian), produced by
-`devflow/docs/graph_to_mermaid.py` from `graphify-out/graph.json`. Distinct from a
+`dyflo/docs/graph_to_mermaid.py` from `graphify-out/graph.json`. Distinct from a
 README refresher: this builds architecture understanding from scratch and is safe to
 re-run as the code evolves (the graph re-indexes on commit).
 
 ## Configure it around anything
 
-`devflow --bootstrap` writes `devflow.config.json` in the target repo:
+`dyflo --bootstrap` writes `dyflo.config.json` in the target repo:
 
 ```json
 {
@@ -103,22 +103,22 @@ re-run as the code evolves (the graph re-indexes on commit).
 
 - **Different labels?** Rename `auto`/`hitl` to whatever your team uses.
 - **Different ticket source?** Set `adapter` to another name and drop a
-  `devflow/adapters/<name>.py` exposing `list_open_tickets(label)` and
+  `dyflo/adapters/<name>.py` exposing `list_open_tickets(label)` and
   `set_label(id, label)` that return the normalized envelope
   `{id, title, body, labels, url}`. GitHub ships built-in; Jira/Linear/flat-file
   are each one small adapter file — no core changes. See
-  `devflow/adapters/github.py` as the template.
-- **Different repo for the adapter?** `export DEVFLOW_REPO=owner/name` (GitHub) or
+  `dyflo/adapters/github.py` as the template.
+- **Different repo for the adapter?** `export DYFLO_REPO=owner/name` (GitHub) or
   set it per your adapter.
 
 ## The research stage in detail
 
-For every `hitl`/unlabeled ticket, DevFlow:
+For every `hitl`/unlabeled ticket, Dyflo:
 
 1. **Blast radius** — `graphify affected "<symbol>"` / `path` over what the ticket
    touches: how far it ripples, which architectural hotspots (`god_nodes`) are in
    scope, whether it sits on a boundary to another system.
-2. **Pattern match** — `devflow/patterns/lookup.py` scores the ticket against the
+2. **Pattern match** — `dyflo/patterns/lookup.py` scores the ticket against the
    vendored catalog; a hit is cited to its canonical URL, a miss falls back to live
    retrieval for that ticket only.
 3. **Ponytail gate** — *does this even need a pattern?* A small local change with a
@@ -132,21 +132,21 @@ For every `hitl`/unlabeled ticket, DevFlow:
 ## Layout
 
 ```
-devflow.sh              launcher (symlinked to `devflow`)
+dyflo.sh              launcher (symlinked to `dyflo`)
 install.sh              installer
 mcp-server.json         graphify MCP block, for manual registration
-devflow/                the engine
+dyflo/                the engine
   router.py             label → lane (with the no-escalation invariant)
   adapters/             ticket-source adapters (github built-in) + selfcheck
   patterns/             catalog.json (4 sources) + lookup.py matcher
   docs/                 graph_to_mermaid.py — graph.json → portable Mermaid
   vendor-ponytail.sh    put ponytail's ruleset into the target repo's AGENTS.md
 agents/                 doc-cartographer.md — the documentation agent
-skill/                  the /devflow Claude Code skill (SKILL.md + references)
+skill/                  the /dyflo Claude Code skill (SKILL.md + references)
 docs/adr/               where research writes ADRs (template.md included)
 ```
 
 ## Non-goals
 
-DevFlow never merges PRs, never schedules cron/launchd, and never escalates a
+Dyflo never merges PRs, never schedules cron/launchd, and never escalates a
 ticket into unattended execution. It dispatches; humans merge; the watcher loops.

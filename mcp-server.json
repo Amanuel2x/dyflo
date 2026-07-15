@@ -1,5 +1,5 @@
 {
-  "_comment": "Graphify MCP server for DevFlow. install.sh registers this via `claude mcp add`. To add manually: `claude mcp add graphify --scope user -- graphify-mcp graphify-out/graph.json`, or paste the block below into your .mcp.json / settings.json enabledMcpjsonServers. Requires `uv tool install 'graphifyy[mcp]'` and a built graph (`graphify update .`).",
+  "_comment": "Graphify MCP server for Dyflo. install.sh registers this via `claude mcp add`. To add manually: `claude mcp add graphify --scope user -- graphify-mcp graphify-out/graph.json`, or paste the block below into your .mcp.json / settings.json enabledMcpjsonServers. Requires `uv tool install 'graphifyy[mcp]'` and a built graph (`graphify update .`).",
   "mcpServers": {
     "graphify": {
       "type": "stdio",

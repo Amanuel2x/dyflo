@@ -6,7 +6,7 @@ __pycache__/
 *.pyc
 
 # Per-repo config lives in the TARGET repo, not here — but ignore a stray one
-devflow.config.json
+dyflo.config.json
 
 # OS / editor
 .DS_Store

@@ -1,5 +1,5 @@
 """
-DevFlow ticket-source adapters — repo-agnostic ingestion.
+Dyflo ticket-source adapters — repo-agnostic ingestion.
 
 The seam is a normalized envelope (EIP Canonical Data Model), so the router and
 research stage never know or care whether a ticket came from GitHub, Jira, or a

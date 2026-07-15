@@ -1,5 +1,5 @@
 {
-  "description": "DevFlow architecture-pattern index. Vendored from the four canonical catalogs (GoF via Refactoring.Guru, Fowler PoEAA, microservices.io, Hohpe EIP). This is the INDEX, not the prose — one line of intent + matchable use_when triggers + the tradeoff + a canonical URL to click through. The research stage matches a ticket's blast-radius shape against use_when. On a miss, it falls back to live retrieval (WebSearch/context7). Refresh by hand only when a source materially changes (rare).",
+  "description": "Dyflo architecture-pattern index. Vendored from the four canonical catalogs (GoF via Refactoring.Guru, Fowler PoEAA, microservices.io, Hohpe EIP). This is the INDEX, not the prose — one line of intent + matchable use_when triggers + the tradeoff + a canonical URL to click through. The research stage matches a ticket's blast-radius shape against use_when. On a miss, it falls back to live retrieval (WebSearch/context7). Refresh by hand only when a source materially changes (rare).",
   "sources": {
     "gof": "https://refactoring.guru/design-patterns/catalog",
     "poeaa": "https://martinfowler.com/eaaCatalog/",

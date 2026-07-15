@@ -2,7 +2,7 @@
 """
 catalog lookup — match a ticket's text against the vendored pattern index.
 
-Used by the DevFlow research stage: score each pattern's `use_when` triggers
+Used by the Dyflo research stage: score each pattern's `use_when` triggers
 against the ticket + blast-radius text; return ranked hits. A miss (top score
 below THRESHOLD) is the signal to fall back to live retrieval.
 

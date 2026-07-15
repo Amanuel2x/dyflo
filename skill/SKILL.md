@@ -1,5 +1,5 @@
 ---
-name: devflow
+name: dyflo
 description: |
   Repository-agnostic hybrid dev loop. Routes an incoming ticket (GitHub Issue,
   Jira, or any adapter) into one of two lanes by label: an AUTONOMOUS lane
@@ -7,7 +7,7 @@ description: |
   one-ticket-one-PR-exit) or a HITL lane (big/risky work → a research stage
   computes blast radius and picks an architecture pattern, emits a draft ADR you
   approve, then TRIP plans/implements/releases with human gates). Use when the
-  user says "devflow", "assign this ticket", "research this issue before I plan
+  user says "dyflo", "assign this ticket", "research this issue before I plan
   it", "route this ticket", "set up the hybrid agent loop", "run the research
   stage", or wants the launcher that turns on assign-or-do-it-yourself. The
   research stage is the core: it fuses Graphify blast radius + the vendored
@@ -17,7 +17,7 @@ description: |
   ticket into unattended execution — the research stage only ever downgrades.
 ---
 
-# DevFlow — hybrid autonomous + HITL dev loop (`/devflow`)
+# Dyflo — hybrid autonomous + HITL dev loop (`/dyflo`)
 
 One entry point wraps any repo. From it you either **assign** work (hand off a
 ticket, the system routes it) or **do the work yourself** (an interactive session
@@ -45,7 +45,7 @@ The router **only downgrades** (research may relabel `hitl`→`auto`). It never
 auto-escalates a small ticket into unattended execution. That is the one safety
 invariant of the whole system.
 
-## Prerequisites (bootstrap once per repo — `devflow.sh` does this)
+## Prerequisites (bootstrap once per repo — `dyflo.sh` does this)
 
 1. **Graph:** `graphify update .` at repo root → `graphify-out/graph.json`. Enable
    the `graphify` MCP server (install.sh registers it; `mcp-server.json` has the
@@ -79,9 +79,9 @@ radius vs. wide cross-module ripple is what separates the two exits below.
 
 ### 2 — Pattern match (vendored catalog, live fallback)
 ```bash
-python3 "$DEVFLOW_HOME/devflow/patterns/lookup.py" "<ticket title + body + blast-radius summary>"
+python3 "$DYFLO_HOME/dyflo/patterns/lookup.py" "<ticket title + body + blast-radius summary>"
 ```
-(`DEVFLOW_HOME` is the DevFlow repo path — install.sh stamps it in a comment at the
+(`DYFLO_HOME` is the Dyflo repo path — install.sh stamps it in a comment at the
 bottom of this file.)
 - A ranked hit (score ≥ threshold) → candidate pattern(s), each cited to a
   canonical URL (GoF / Fowler PoEAA / microservices.io / Hohpe EIP).
@@ -136,9 +136,9 @@ Surface the draft ADR for approval. On approval, `/TRIP-1-plan <the ADR>` picks 
 up; the human gates then hold at plan and at diff, and `/TRIP-3-release` opens the PR.
 
 ## Reference
-- `$DEVFLOW_HOME/devflow/patterns/catalog.json` — vendored pattern index (4 canonical sources).
-- `$DEVFLOW_HOME/devflow/patterns/lookup.py` — matcher + `--self-check` (ranking + miss).
-- `$DEVFLOW_HOME/devflow/adapters/` — ticket-source adapters (agnostic ingestion; GitHub first).
+- `$DYFLO_HOME/dyflo/patterns/catalog.json` — vendored pattern index (4 canonical sources).
+- `$DYFLO_HOME/dyflo/patterns/lookup.py` — matcher + `--self-check` (ranking + miss).
+- `$DYFLO_HOME/dyflo/adapters/` — ticket-source adapters (agnostic ingestion; GitHub first).
 - `references/vendor-ponytail.md` (beside this file) — how ponytail reaches the autonomous lane.
 - `agent-orchestration` skill — the autonomous watcher (separate skill).
 - TRIP skills (`/TRIP-1-plan`, `/TRIP-2-implement`, `/TRIP-3-release`) — the HITL lane.

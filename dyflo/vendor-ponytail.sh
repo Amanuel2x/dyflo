@@ -21,7 +21,7 @@ import glob, os, sys
 
 repo = sys.argv[1]
 dest = os.path.join(repo, "AGENTS.md")
-BEGIN = "<!-- ponytail:begin (vendored by devflow) -->"
+BEGIN = "<!-- ponytail:begin (vendored by dyflo) -->"
 END = "<!-- ponytail:end -->"
 
 # Locate ponytail's canonical AGENTS.md — newest installed version, not hardcoded.
