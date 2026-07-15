@@ -1,0 +1,264 @@
+{
+  "description": "DevFlow architecture-pattern index. Vendored from the four canonical catalogs (GoF via Refactoring.Guru, Fowler PoEAA, microservices.io, Hohpe EIP). This is the INDEX, not the prose — one line of intent + matchable use_when triggers + the tradeoff + a canonical URL to click through. The research stage matches a ticket's blast-radius shape against use_when. On a miss, it falls back to live retrieval (WebSearch/context7). Refresh by hand only when a source materially changes (rare).",
+  "sources": {
+    "gof": "https://refactoring.guru/design-patterns/catalog",
+    "poeaa": "https://martinfowler.com/eaaCatalog/",
+    "microservices": "https://microservices.io/patterns/index.html",
+    "eip": "https://www.enterpriseintegrationpatterns.com/patterns/messaging/toc.html",
+    "adr": "https://adr.github.io/"
+  },
+  "patterns": [
+    {
+      "id": "strategy",
+      "name": "Strategy",
+      "category": "gof",
+      "intent": "Define a family of interchangeable algorithms behind one interface; pick at runtime.",
+      "use_when": ["multiple ways to do the same thing", "swap algorithm at runtime", "growing if/else or switch on a type", "pluggable behavior", "avoid conditional-per-variant"],
+      "tradeoff": "More classes/objects; overkill if variants never grow past two.",
+      "source_url": "https://refactoring.guru/design-patterns/strategy"
+    },
+    {
+      "id": "adapter",
+      "name": "Adapter",
+      "category": "gof",
+      "intent": "Wrap an incompatible interface so existing code can use it unchanged.",
+      "use_when": ["integrate a third-party or legacy interface", "two incompatible interfaces", "wrap an external SDK", "normalize a foreign API to our shape", "pluggable data source"],
+      "tradeoff": "Extra indirection layer; hides the real interface, can mask leaky abstractions.",
+      "source_url": "https://refactoring.guru/design-patterns/adapter"
+    },
+    {
+      "id": "facade",
+      "name": "Facade",
+      "category": "gof",
+      "intent": "One simplified entry point over a complex subsystem.",
+      "use_when": ["simplify a tangled subsystem", "one door into many modules", "reduce coupling to internals", "callers touch too many classes"],
+      "tradeoff": "Can become a god object if it accretes responsibilities.",
+      "source_url": "https://refactoring.guru/design-patterns/facade"
+    },
+    {
+      "id": "factory-method",
+      "name": "Factory Method",
+      "category": "gof",
+      "intent": "Defer instantiation to subclasses/functions so callers don't hardcode concrete types.",
+      "use_when": ["construction logic scattered across callers", "decide concrete type from config or input", "new operator repeated everywhere", "creation varies by variant"],
+      "tradeoff": "Indirection for a single product is pure ceremony (ponytail: a function often beats a hierarchy).",
+      "source_url": "https://refactoring.guru/design-patterns/factory-method"
+    },
+    {
+      "id": "observer",
+      "name": "Observer",
+      "category": "gof",
+      "intent": "Notify a set of dependents when one object changes state.",
+      "use_when": ["publish/subscribe within one process", "react to state changes", "decouple event source from listeners", "fan-out notifications"],
+      "tradeoff": "Update order is non-obvious; leaks if observers aren't unsubscribed. For cross-process use EIP messaging.",
+      "source_url": "https://refactoring.guru/design-patterns/observer"
+    },
+    {
+      "id": "decorator",
+      "name": "Decorator",
+      "category": "gof",
+      "intent": "Attach responsibilities to an object dynamically by wrapping it.",
+      "use_when": ["add behavior without subclassing", "compose cross-cutting concerns", "layer logging/retry/cache around a call", "stackable middleware"],
+      "tradeoff": "Deep wrapping stacks are hard to debug; order matters.",
+      "source_url": "https://refactoring.guru/design-patterns/decorator"
+    },
+    {
+      "id": "command",
+      "name": "Command",
+      "category": "gof",
+      "intent": "Encapsulate a request as an object (params, undo, queue, log).",
+      "use_when": ["queue or schedule operations", "undo/redo", "log or replay actions", "decouple invoker from receiver"],
+      "tradeoff": "Object-per-action overhead; unnecessary for direct calls.",
+      "source_url": "https://refactoring.guru/design-patterns/command"
+    },
+    {
+      "id": "state",
+      "name": "State",
+      "category": "gof",
+      "intent": "Let an object change behavior when its internal state changes; states become classes.",
+      "use_when": ["large state machine in conditionals", "behavior depends on mode/phase", "transitions scattered across methods", "lifecycle with distinct stages"],
+      "tradeoff": "Class explosion for simple state; a table or enum may suffice.",
+      "source_url": "https://refactoring.guru/design-patterns/state"
+    },
+    {
+      "id": "repository",
+      "name": "Repository",
+      "category": "poeaa",
+      "intent": "Mediate between the domain and data mapping via a collection-like interface for accessing domain objects.",
+      "use_when": ["abstract data access from business logic", "swap persistence backend", "query logic scattered in services", "isolate ORM from domain", "testable data layer"],
+      "tradeoff": "Another layer; thin CRUD apps get little from it.",
+      "source_url": "https://martinfowler.com/eaaCatalog/repository.html"
+    },
+    {
+      "id": "unit-of-work",
+      "name": "Unit of Work",
+      "category": "poeaa",
+      "intent": "Track objects touched in a business transaction and coordinate writing out changes and concurrency.",
+      "use_when": ["batch DB writes into one transaction", "consistency across multiple repositories", "reduce round-trips", "coordinate commit/rollback"],
+      "tradeoff": "Complexity; ORMs (session/context) usually provide it already — don't reinvent.",
+      "source_url": "https://martinfowler.com/eaaCatalog/unitOfWork.html"
+    },
+    {
+      "id": "gateway",
+      "name": "Gateway",
+      "category": "poeaa",
+      "intent": "An object that encapsulates access to an external system or resource behind a simple API.",
+      "use_when": ["wrap an external service or system", "isolate a third-party API", "single choke point to an external dependency", "make an external call mockable"],
+      "tradeoff": "One more indirection; trivial for a single simple call.",
+      "source_url": "https://martinfowler.com/eaaCatalog/gateway.html"
+    },
+    {
+      "id": "service-layer",
+      "name": "Service Layer",
+      "category": "poeaa",
+      "intent": "Define an application's boundary with a layer of services that set available operations and coordinate responses.",
+      "use_when": ["define an application boundary", "coordinate transactions and domain logic", "multiple clients (UI, API, jobs) share operations", "orchestrate use-cases"],
+      "tradeoff": "Can turn anemic (logic leaks out); risks a thin pass-through layer.",
+      "source_url": "https://martinfowler.com/eaaCatalog/serviceLayer.html"
+    },
+    {
+      "id": "dto",
+      "name": "Data Transfer Object",
+      "category": "poeaa",
+      "intent": "Carry data between processes to reduce the number of remote calls.",
+      "use_when": ["shape data for an API boundary", "decouple wire format from domain model", "reduce over-fetching across a boundary", "serialize a subset of a model"],
+      "tradeoff": "Mapping boilerplate; in-process code rarely needs it.",
+      "source_url": "https://martinfowler.com/eaaCatalog/dataTransferObject.html"
+    },
+    {
+      "id": "anti-corruption-layer",
+      "name": "Anti-Corruption Layer",
+      "category": "microservices",
+      "intent": "A translation layer that keeps a foreign/legacy model from leaking into your own.",
+      "use_when": ["integrate with a legacy system", "keep an external model out of the domain", "migrate off an old system incrementally", "foreign concepts polluting core logic", "high blast-radius change touching a boundary to another system"],
+      "tradeoff": "Translation cost and duplication; needs maintenance as the foreign model changes.",
+      "source_url": "https://microservices.io/patterns/refactoring/anti-corruption-layer.html"
+    },
+    {
+      "id": "strangler-fig",
+      "name": "Strangler Fig",
+      "category": "microservices",
+      "intent": "Incrementally replace a legacy system by routing slices of functionality to new code until the old is strangled.",
+      "use_when": ["migrate a monolith without a big-bang rewrite", "incremental legacy replacement", "route some traffic to new implementation", "decompose gradually", "large risky rewrite"],
+      "tradeoff": "Long period running two systems; routing/facade overhead during migration.",
+      "source_url": "https://microservices.io/patterns/refactoring/strangler-application.html"
+    },
+    {
+      "id": "api-gateway",
+      "name": "API Gateway",
+      "category": "microservices",
+      "intent": "A single entry point for clients that routes, composes, and translates to backend services.",
+      "use_when": ["one front door for many services", "aggregate calls for a client", "cross-cutting auth/rate-limit at the edge", "clients shouldn't know service topology"],
+      "tradeoff": "Can become a bottleneck and a development coupling point; risks a distributed monolith.",
+      "source_url": "https://microservices.io/patterns/apigateway.html"
+    },
+    {
+      "id": "saga",
+      "name": "Saga",
+      "category": "microservices",
+      "intent": "Manage data consistency across services with a sequence of local transactions plus compensating actions.",
+      "use_when": ["transaction spans multiple services/databases", "no distributed transactions available", "need compensating rollback across services", "eventual consistency across boundaries"],
+      "tradeoff": "Compensation logic is hard; no isolation — must handle intermediate visible states.",
+      "source_url": "https://microservices.io/patterns/data/saga.html"
+    },
+    {
+      "id": "circuit-breaker",
+      "name": "Circuit Breaker",
+      "category": "microservices",
+      "intent": "Stop calling a failing dependency for a while to let it recover and to fail fast.",
+      "use_when": ["protect against a flaky downstream", "cascading failure risk", "fail fast when a dependency is down", "remote call that can hang"],
+      "tradeoff": "Tuning thresholds is fiddly; adds state and a half-open probing dance.",
+      "source_url": "https://microservices.io/patterns/reliability/circuit-breaker.html"
+    },
+    {
+      "id": "cqrs",
+      "name": "CQRS",
+      "category": "microservices",
+      "intent": "Separate the write model from one or more read models optimized for queries.",
+      "use_when": ["read and write loads differ sharply", "complex queries vs simple writes", "multiple denormalized read views", "reporting alongside transactional writes"],
+      "tradeoff": "Two models to keep consistent; big complexity tax — do not reach for it by default.",
+      "source_url": "https://microservices.io/patterns/data/cqrs.html"
+    },
+    {
+      "id": "event-sourcing",
+      "name": "Event Sourcing",
+      "category": "microservices",
+      "intent": "Persist state as a sequence of events; rebuild current state by replaying them.",
+      "use_when": ["full audit trail required", "reconstruct past state", "reliable event publication", "temporal queries / time travel"],
+      "tradeoff": "Schema evolution of events is painful; steep learning curve; usually pairs with CQRS. Rarely the lazy choice.",
+      "source_url": "https://microservices.io/patterns/data/event-sourcing.html"
+    },
+    {
+      "id": "database-per-service",
+      "name": "Database per Service",
+      "category": "microservices",
+      "intent": "Each service owns its data privately; others access it only via the service's API.",
+      "use_when": ["decouple service data", "independent schema evolution", "stop cross-service DB coupling", "service autonomy"],
+      "tradeoff": "Cross-service queries and transactions get hard (see Saga/CQRS).",
+      "source_url": "https://microservices.io/patterns/data/database-per-service.html"
+    },
+    {
+      "id": "message-router",
+      "name": "Message Router",
+      "category": "eip",
+      "intent": "Route a message to a different channel based on its content or conditions, without changing it.",
+      "use_when": ["dispatch based on message content", "route to different handlers by type or label", "conditional routing", "content-based dispatch", "lane selection by attribute"],
+      "tradeoff": "Central routing logic can become a bottleneck and a coupling hotspot.",
+      "source_url": "https://www.enterpriseintegrationpatterns.com/patterns/messaging/MessageRouter.html"
+    },
+    {
+      "id": "content-based-router",
+      "name": "Content-Based Router",
+      "category": "eip",
+      "intent": "Route each message to the correct recipient based on message content.",
+      "use_when": ["route by a field in the payload", "different processing per message type", "label or attribute decides destination", "auto vs manual lane by ticket label"],
+      "tradeoff": "Router must know all recipients — becomes a change magnet as routes grow.",
+      "source_url": "https://www.enterpriseintegrationpatterns.com/patterns/messaging/ContentBasedRouter.html"
+    },
+    {
+      "id": "message-translator",
+      "name": "Message Translator",
+      "category": "eip",
+      "intent": "Translate one data format to another between systems that use different representations.",
+      "use_when": ["normalize heterogeneous inputs to one shape", "adapter between two ticket sources", "canonical data model", "map external format to internal envelope"],
+      "tradeoff": "Extra mapping to maintain as either side's format drifts.",
+      "source_url": "https://www.enterpriseintegrationpatterns.com/patterns/messaging/MessageTranslator.html"
+    },
+    {
+      "id": "canonical-data-model",
+      "name": "Canonical Data Model",
+      "category": "eip",
+      "intent": "Define a common format independent of any specific application to minimize per-integration translators.",
+      "use_when": ["many sources feeding one pipeline", "avoid N×M adapters", "shared internal envelope for multiple integrations", "normalize GitHub/Jira/etc to one shape"],
+      "tradeoff": "The canonical model itself becomes a shared dependency to govern.",
+      "source_url": "https://www.enterpriseintegrationpatterns.com/patterns/messaging/CanonicalDataModel.html"
+    },
+    {
+      "id": "dead-letter-channel",
+      "name": "Dead Letter Channel",
+      "category": "eip",
+      "intent": "Move messages the system cannot process to a special channel instead of losing or blocking them.",
+      "use_when": ["handle un-processable messages", "poison message keeps failing", "quarantine failures for later inspection", "don't block the queue on one bad item"],
+      "tradeoff": "Needs monitoring/replay tooling or the dead-letter channel silently fills.",
+      "source_url": "https://www.enterpriseintegrationpatterns.com/patterns/messaging/DeadLetterChannel.html"
+    },
+    {
+      "id": "publish-subscribe-channel",
+      "name": "Publish-Subscribe Channel",
+      "category": "eip",
+      "intent": "Deliver each message to all interested subscribers via a broadcast channel.",
+      "use_when": ["broadcast an event to many consumers", "cross-process fan-out", "decouple producer from N consumers", "event notification across services"],
+      "tradeoff": "Delivery guarantees and subscriber lifecycle add operational burden.",
+      "source_url": "https://www.enterpriseintegrationpatterns.com/patterns/messaging/PublishSubscribeChannel.html"
+    },
+    {
+      "id": "idempotent-receiver",
+      "name": "Idempotent Receiver",
+      "category": "eip",
+      "intent": "Make a receiver safely handle duplicate messages so at-least-once delivery is harmless.",
+      "use_when": ["at-least-once delivery may duplicate", "retries can re-deliver", "webhook or poll may fire twice", "dedupe by id/key"],
+      "tradeoff": "Needs a dedupe store or natural idempotency key to track processed ids.",
+      "source_url": "https://www.enterpriseintegrationpatterns.com/patterns/messaging/IdempotentReceiver.html"
+    }
+  ]
+}

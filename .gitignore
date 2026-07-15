@@ -1,0 +1,13 @@
+# Graphify knowledge-graph build artifacts (rebuilt via `graphify update .`)
+graphify-out/
+
+# Python
+__pycache__/
+*.pyc
+
+# Per-repo config lives in the TARGET repo, not here — but ignore a stray one
+devflow.config.json
+
+# OS / editor
+.DS_Store
+*.swp
