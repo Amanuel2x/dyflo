@@ -3,7 +3,7 @@ name: dyflo
 description: |
   Repository-agnostic hybrid dev loop. Routes an incoming ticket (GitHub Issue,
   Jira, or any adapter) into one of two lanes by label: an AUTONOMOUS lane
-  (small/mundane work → the agent-orchestration watcher runs it headless,
+  (small/mundane work → the dyflo-watcher runs it headless,
   one-ticket-one-PR-exit) or a HITL lane (big/risky work → a research stage
   computes blast radius and picks an architecture pattern, emits a draft ADR you
   approve, then TRIP plans/implements/releases with human gates). Use when the
@@ -38,7 +38,7 @@ ticket → adapter → ROUTER (by label)
 
 | Lane | Label | Who runs it | Human gate |
 |------|-------|-------------|------------|
-| Autonomous | `auto` | `agent-orchestration` watcher, headless `claude -p` | none (PR only; a human merges — run `/code-review <pr#>` first, plus `/security-review` if the diff touches auth/secrets/validation) |
+| Autonomous | `auto` | `dyflo-watcher`, headless `claude -p` | none (PR only; a human merges — run `/code-review <pr#>` first, plus `/security-review` if the diff touches auth/secrets/validation) |
 | HITL | `hitl` / unlabeled | research stage → TRIP | ADR approval, plan, diff |
 
 The router **only downgrades** (research may relabel `hitl`→`auto`). It never
@@ -55,7 +55,7 @@ invariant of the whole system.
    (the watcher go-prompt already treats CLAUDE.md/AGENTS.md as mandatory). See the
    `vendor-ponytail` reference.
 3. **Labels:** `auto`, `hitl` exist on the ticket source.
-4. **Watcher:** `agent-orchestration` set up for the `auto` label (that skill's job).
+4. **Watcher:** `/dyflo-watcher` set up for the `auto` label (ships with Dyflo — Tessy/Quin specialist briefs included).
 
 ## The research stage (run for every `hitl`/unlabeled ticket)
 
@@ -140,5 +140,5 @@ up; the human gates then hold at plan and at diff, and `/TRIP-3-release` opens t
 - `$DYFLO_HOME/dyflo/patterns/lookup.py` — matcher + `--self-check` (ranking + miss).
 - `$DYFLO_HOME/dyflo/adapters/` — ticket-source adapters (agnostic ingestion; GitHub first).
 - `references/vendor-ponytail.md` (beside this file) — how ponytail reaches the autonomous lane.
-- `agent-orchestration` skill — the autonomous watcher (separate skill).
+- `/dyflo-watcher` skill (ships with Dyflo, installed by install.sh) — the autonomous watcher: engine + generalist/Tessy/Quin briefs.
 - TRIP skills (`/TRIP-1-plan`, `/TRIP-2-implement`, `/TRIP-3-release`) — the HITL lane.

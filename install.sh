@@ -73,6 +73,19 @@ cp "$HOME_DIR/skill/references/vendor-ponytail.md" "$DEST/references/vendor-pony
 printf '\n<!-- DYFLO_HOME=%s -->\n' "$HOME_DIR" >> "$DEST/SKILL.md"
 echo "   installed skill → $DEST"
 
+# 3a) the dyflo-watcher skill (the autonomous lane: engine + Tessy/Quin briefs) -
+say "3a) dyflo-watcher skill (autonomous lane)"
+if [ -n "$PROJECT" ]; then
+  WDEST="$PROJECT/.claude/skills/dyflo-watcher"
+else
+  WDEST="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/dyflo-watcher"
+fi
+mkdir -p "$WDEST/templates"
+cp "$HOME_DIR/skill/watcher/SKILL.md" "$WDEST/SKILL.md"
+cp "$HOME_DIR/skill/watcher/README.md" "$WDEST/README.md"
+cp "$HOME_DIR"/skill/watcher/templates/* "$WDEST/templates/"
+echo "   installed skill → $WDEST (engine + generalist/Tessy/Quin briefs)"
+
 # 3b) the doc-cartographer agent ---------------------------------------------
 say "3b) doc-cartographer agent"
 if [ -n "$PROJECT" ]; then

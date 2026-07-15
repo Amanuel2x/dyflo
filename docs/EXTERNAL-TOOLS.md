@@ -13,7 +13,7 @@ of proven techniques, one is the careful sous-chef for the big dishes.
 |---|---|---|
 | **Graphify** | Persistent map of the codebase + "what breaks if I change X" | The research stage's blast radius; the doc agent's diagrams |
 | **Ponytail** | Forces the *smallest* solution that works | Rides inside every code-writing agent, both lanes |
-| **agent-orchestration** (watcher) | Runs coding agents unattended, one ticket → one PR | The autonomous lane |
+| **dyflo-watcher** (ships with Dyflo) | Runs coding agents unattended, one ticket → one PR; generalist + Tessy + Quin | The autonomous lane |
 | **TRIP** | Human-gated plan → implement → release | The HITL lane |
 | **Codex** | Second-opinion reviewer inside TRIP | TRIP's review loops |
 
@@ -134,7 +134,10 @@ hand-rolled eviction bug waiting to happen.
 
 ---
 
-## 3. agent-orchestration — the unattended watcher (the "autonomous lane")
+## 3. dyflo-watcher — the unattended watcher (the "autonomous lane")
+
+*(This one ships **inside** Dyflo — it's not a third-party tool, but it's the engine
+behind the autonomous lane, so it belongs here.)*
 
 **What it does.** A small Python engine that polls your ticket source (GitHub
 issues with a given label) in a loop. When there's eligible work and the agent has
@@ -147,6 +150,21 @@ if its own PR's CI fails (or the PR goes CONFLICTING), it fixes that first.
 downgraded there by the research stage) get worked entirely without a human — the
 human only reviews and merges the resulting PR.
 
+**The roster.** An "agent" is just a label + a mission brief + its own login. Two
+kinds ship with Dyflo:
+
+- **Generalist coders** — scope-agnostic; a label (`backend`, `frontend`, …) scopes
+  the work, the brief is the generic "take a ticket → fix code → PR."
+- **Specialists**, whose job isn't "fix a ticket," so they get distinct briefs:
+  - **Tessy** (test author) — finds under-tested code, writes/strengthens tests,
+    opens a **test-only** PR. Never touches product code; if a test catches a real
+    bug she files an issue instead of silently fixing it; never weakens a test to
+    go green.
+  - **Quin** (QA verifier) — **exercises** a change end-to-end (runs the app / hits
+    the route), then reports PASS-with-evidence or opens a bug issue. Writes no
+    product code and no test suites. A green test suite is a signal to her, not a
+    verdict — she checks the behavior a user actually sees.
+
 **Example — the loop, in plain terms:**
 
 Before (you, manually, all day):
@@ -155,22 +173,24 @@ Before (you, manually, all day):
 see issue #42 → open editor → fix it → run tests → open PR → repeat for #43, #44…
 ```
 
-After (the watcher, unattended):
+After (the watcher, unattended — here a coder and Quin, each on their own label):
 
 ```
-[10:00:01] Backend Watcher started. Polling owner/repo (label: auto) every 60s.
-[10:00:01] Backend on the prowl — 3 eligible.
-[10:00:02] Launching Backend:  #42 — Fix null check in parser
-           → (headless session: reads #42, branches, fixes, tests, opens PR, exits)
-[10:14:20] Backend session ended (exit 0).
-[10:14:21] Backend on the prowl — 2 eligible.   # picks #43 next…
+[10:00:01] backend Watcher started. Polling owner/repo (label: auto) every 60s.
+[10:00:02] Launching backend:  #42 — Fix null check in parser
+           → (headless: reads #42, branches, fixes, tests, opens PR, exits)
+[10:14:20] backend session ended (exit 0).
+
+[10:00:01] Quin Watcher started. Polling owner/repo (label: qa) every 60s.
+[10:00:02] Launching Quin:  #38 — Verify empty-cart checkout returns 400
+           → (headless: runs the app, POSTs an empty cart, observes 400, ✅ on the issue)
 ```
 
-The discipline ("one ticket, never merge, evidence in the PR body") lives in the
-mission brief; the engine just drives the loop.
+The discipline ("one ticket, never merge, evidence in the PR body / verdict") lives
+in each mission brief; the engine just drives the loop.
 
-> Set up per-repo via the `agent-orchestration` skill. Runs as `python3 <name>-watcher.py`.
-> Repo: https://github.com/Amanuel2x/agent-orchestration
+> Ships with Dyflo as the `/dyflo-watcher` skill (installed by `install.sh`). Set up
+> per-repo via that skill; each agent runs as `python3 <name>-watcher.py`.
 
 ---
 

@@ -1,0 +1,9 @@
+{
+  "_comment": "{NAME}'s work queue. order = priority (earlier wins); skip = epics OR externally-blocked issues this agent must never auto-pick; blocked_by = don't pick issue N until those issue NUMBERS are CLOSED. ALL values are integers (issue numbers ONLY). External/prose blockers go in skip + _notes, NEVER blocked_by (non-numeric crashes the parser). Anything not listed falls to ascending issue number.",
+  "order": [],
+  "skip": [],
+  "blocked_by": {},
+  "_notes": {
+    "setup": "No tickets queued yet. File '{LABEL}'-labeled issues on {REPO} to give {NAME} work."
+  }
+}

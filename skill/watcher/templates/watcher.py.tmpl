@@ -1,0 +1,45 @@
+"""
+{NAME} Watcher — thin config over the shared engine (agent_watcher.py).
+
+Polls {REPO} for open issues labeled `{LABEL}`; launches a headless Claude Code
+session when there is eligible work and no failing PR of its own.
+
+Usage:  python3 {name}-watcher.py   (Ctrl+C to stop)
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+# Engine lives at the repo root (adjust if you put it elsewhere).
+sys.path.insert(0, str(Path(__file__).parent))
+from agent_watcher import AgentConfig, run  # noqa: E402
+
+WORK_DIR = Path(__file__).parent
+REPO = "{REPO}"                       # owner/repo — auto-detected at setup
+LABEL = "{LABEL}"
+
+# Each agent gets its OWN config dir so sessions/accounts don't collide.
+CLAUDE_CONFIG_DIR = str(Path.home() / ".claude-{name}")
+
+INTEGRATION_PROMPT = """
+You are {NAME}. All tagged tickets are closed — this is the INTEGRATION SESSION.
+Verify what shipped this sprint actually works, end to end, with cited evidence
+(file:line or command output) for each check. Fix any failure inline and open ONE
+PR titled "chore: {name} integration — sprint close". Never merge. When done,
+write a file `{name}-sprint-done.tmp` with content "done".
+"""
+
+CONFIG = AgentConfig(
+    name="{NAME}",
+    repo=REPO,
+    label=LABEL,
+    work_dir=WORK_DIR,
+    go_prompt_file=WORK_DIR / "{name}-go.md",
+    integration_prompt=INTEGRATION_PROMPT,
+    claude_config_dir=CLAUDE_CONFIG_DIR,
+    queue_file=WORK_DIR / "{name}-queue.json",
+)
+
+if __name__ == "__main__":
+    run(CONFIG)

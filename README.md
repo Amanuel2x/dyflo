@@ -35,7 +35,7 @@ invariant.
 |---|---|---|
 | Persistent memory + blast radius | [Graphify](https://github.com/Graphify-Labs/graphify) | tree-sitter code graph; `affected`/`path` = "what breaks if I change X" |
 | Pattern selection | vendored catalog | GoF · Fowler PoEAA · microservices.io · Hohpe EIP index; live fallback on a miss |
-| Autonomous loop | [agent-orchestration](https://github.com/Amanuel2x/agent-orchestration) watcher | polls the source, launches headless `claude -p`, one-ticket-one-PR |
+| Autonomous loop | `dyflo-watcher` (ships with Dyflo) | polls the source, launches headless `claude -p`, one-ticket-one-PR; generalist + Tessy (tests) + Quin (QA) briefs |
 | Code-writing discipline | [ponytail](https://github.com/DietrichGebert/ponytail) | "lazy senior dev" ruleset, vendored into the repo for the headless lane |
 | Human-gated flow | [TRIP](https://github.com/PiLastDigit/TRIP-workflow) | `/TRIP-1-plan → 2-implement → 3-release`, seeded by the ADR |
 
@@ -147,6 +147,7 @@ dyflo/                the engine
   vendor-ponytail.sh    put ponytail's ruleset into the target repo's AGENTS.md
 agents/                 doc-cartographer.md — the documentation agent
 skill/                  the /dyflo Claude Code skill (SKILL.md + references)
+  watcher/              /dyflo-watcher — the autonomous lane (engine + generalist/Tessy/Quin briefs)
 docs/adr/               where research writes ADRs (template.md included)
 ```
 
