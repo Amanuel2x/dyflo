@@ -42,6 +42,10 @@ invariant.
 Dyflo itself is the **router** and the **research stage** — the two pieces none
 of those tools provide — plus the glue that makes them one loop.
 
+> **New to these tools?** [`docs/EXTERNAL-TOOLS.md`](docs/EXTERNAL-TOOLS.md)
+> explains each one with a concrete before/after example (e.g. what ponytail turns
+> a bloated cache class into, what Graphify's blast radius looks like).
+
 ## Install
 
 ```bash
