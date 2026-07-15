@@ -72,6 +72,18 @@ cp "$HOME_DIR/skill/references/vendor-ponytail.md" "$DEST/references/vendor-pony
 printf '\n<!-- DEVFLOW_HOME=%s -->\n' "$HOME_DIR" >> "$DEST/SKILL.md"
 echo "   installed skill → $DEST"
 
+# 3b) the doc-cartographer agent ---------------------------------------------
+say "3b) doc-cartographer agent"
+if [ -n "$PROJECT" ]; then
+  ADEST="$PROJECT/.claude/agents"
+else
+  ADEST="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/agents"
+fi
+mkdir -p "$ADEST"
+# resolve the <DEVFLOW_HOME> placeholder to the real path so the helper command runs
+sed "s|<DEVFLOW_HOME>|$HOME_DIR|g" "$HOME_DIR/agents/doc-cartographer.md" > "$ADEST/doc-cartographer.md"
+echo "   installed agent → $ADEST/doc-cartographer.md"
+
 # 4) PATH symlink -------------------------------------------------------------
 say "4) launcher on PATH"
 if [ "$LINK" = 1 ]; then

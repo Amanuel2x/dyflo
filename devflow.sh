@@ -5,6 +5,7 @@
 #   devflow.sh --self          do the work yourself (equipped interactive session)
 #   devflow.sh --assign        route all open tickets into their lanes
 #   devflow.sh --assign <id>   run the research stage on one HITL ticket
+#   devflow.sh --docs [focus]  document the repo (doc-cartographer → docs/ARCHITECTURE.md + Mermaid)
 #   devflow.sh --bootstrap     one-time setup for the TARGET repo (graph, hooks, labels, ponytail)
 #   devflow.sh --check         run the engine self-checks
 #
@@ -89,13 +90,25 @@ do_check() {
   python3 "$ENGINE/patterns/lookup.py" --self-check
   ( cd "$ENGINE/adapters" && python3 selfcheck.py )
   python3 "$ENGINE/router.py" --self-check
+  python3 "$ENGINE/docs/graph_to_mermaid.py" --self-check
   bash -n "$ENGINE/vendor-ponytail.sh" && echo "vendor-ponytail.sh syntax OK"
+}
+
+do_docs() {
+  echo "== documenting $REPO_ROOT =="
+  command -v graphify >/dev/null || { echo "!! graphify not found; run devflow --bootstrap first"; exit 1; }
+  [ -f "$REPO_ROOT/graphify-out/graph.json" ] || ( cd "$REPO_ROOT" && graphify update . )
+  local focus="${1:-}"
+  local msg="Use the doc-cartographer agent to document $REPO_ROOT into docs/ARCHITECTURE.md with Mermaid diagrams generated from the graph."
+  [ -n "$focus" ] && msg="$msg Focus on: $focus."
+  exec claude -p "$msg"
 }
 
 case "${1:-}" in
   --bootstrap) bootstrap ;;
   --self)      do_self ;;
   --assign)    do_assign "${2:-}" ;;
+  --docs)      do_docs "${2:-}" ;;
   --check)     do_check ;;
   "" )
     echo "DevFlow — target repo: $REPO_ROOT"
@@ -108,5 +121,5 @@ case "${1:-}" in
       *) echo "nothing picked"; exit 0 ;;
     esac ;;
   -h|--help)   sed -n '2,18p' "$0" ;;
-  *) echo "usage: devflow.sh [--bootstrap|--self|--assign [id]|--check]"; exit 2 ;;
+  *) echo "usage: devflow.sh [--bootstrap|--self|--assign [id]|--docs [focus]|--check]"; exit 2 ;;
 esac

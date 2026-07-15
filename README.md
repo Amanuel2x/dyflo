@@ -74,8 +74,21 @@ Then:
 devflow --assign          # route all open tickets into auto / hitl lanes
 devflow --assign 42       # run the research stage on ticket #42 → draft ADR (or downgrade)
 devflow --self            # open an equipped interactive session and work it yourself
+devflow --docs            # document the repo → docs/ARCHITECTURE.md with Mermaid diagrams
+devflow --docs auth       # same, focused on a subsystem or entry point
 devflow --check           # run the engine self-checks
 ```
+
+## Documentation from the graph
+
+`devflow --docs` runs the **doc-cartographer** agent: it reads the codebase's
+knowledge graph and writes `docs/ARCHITECTURE.md` with Mermaid diagrams generated
+from the *real* structure — a system map (subsystems), a module dependency map, and
+call-flow diagrams per entry point — every claim cited to `file:line`, nothing from
+memory. Diagrams are portable Mermaid (render in GitHub/Obsidian), produced by
+`devflow/docs/graph_to_mermaid.py` from `graphify-out/graph.json`. Distinct from a
+README refresher: this builds architecture understanding from scratch and is safe to
+re-run as the code evolves (the graph re-indexes on commit).
 
 ## Configure it around anything
 
@@ -127,7 +140,9 @@ devflow/                the engine
   router.py             label → lane (with the no-escalation invariant)
   adapters/             ticket-source adapters (github built-in) + selfcheck
   patterns/             catalog.json (4 sources) + lookup.py matcher
+  docs/                 graph_to_mermaid.py — graph.json → portable Mermaid
   vendor-ponytail.sh    put ponytail's ruleset into the target repo's AGENTS.md
+agents/                 doc-cartographer.md — the documentation agent
 skill/                  the /devflow Claude Code skill (SKILL.md + references)
 docs/adr/               where research writes ADRs (template.md included)
 ```
