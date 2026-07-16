@@ -38,7 +38,7 @@ ticket ──► ROUTER (by label) ──┬── auto  ──►  AUTONOMOUS l
 **Local (personal machine):**
 
 ```bash
-git clone https://github.com/Amanuel-Abu/dyflo.git ~/dyflo && cd ~/dyflo
+git clone https://github.com/Amanuel2x/dyflo.git ~/dyflo && cd ~/dyflo
 ./install.sh                    # Claude Code (default)
 #   or:  ./install.sh --runtime cursor
 
@@ -50,7 +50,7 @@ dyflo --assign                  # route open tickets into lanes
 **Remote (container / cloud VM / CI) — one command from a bare box:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Amanuel-Abu/dyflo/master/remote-bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Amanuel2x/dyflo/master/remote-bootstrap.sh | bash
 ```
 
 That's the whole thing. Everything below is detail.

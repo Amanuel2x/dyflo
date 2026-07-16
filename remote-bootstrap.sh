@@ -5,7 +5,7 @@
 # installs uv + graphify, installs Dyflo for the chosen runtime, validates auth,
 # and (devbox mode) leaves you a working `dyflo` command.
 #
-#   curl -fsSL https://raw.githubusercontent.com/Amanuel-Abu/dyflo/master/remote-bootstrap.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Amanuel2x/dyflo/master/remote-bootstrap.sh | bash
 #   ./remote-bootstrap.sh --mode devbox --runtime cursor
 #   ./remote-bootstrap.sh --mode ci --runtime claude --repo owner/name
 #
@@ -84,7 +84,7 @@ if [ -z "$SRC_DIR" ]; then
       log "updating Dyflo source in $SRC_DIR…"; git -C "$SRC_DIR" fetch -q && git -C "$SRC_DIR" checkout -q "$DYFLO_REF" && git -C "$SRC_DIR" pull -q --ff-only || true
     else
       log "cloning Dyflo → $SRC_DIR…"
-      git clone -q --branch "$DYFLO_REF" https://github.com/Amanuel-Abu/dyflo.git "$SRC_DIR" \
+      git clone -q --branch "$DYFLO_REF" https://github.com/Amanuel2x/dyflo.git "$SRC_DIR" \
         || die "clone failed (set --src to a local checkout, or check --ref)."
     fi
   fi

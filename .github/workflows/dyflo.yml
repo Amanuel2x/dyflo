@@ -36,7 +36,7 @@ jobs:
         env:
           DYFLO_RUNTIME: ${{ github.event.inputs.runtime || 'claude' }}
         run: |
-          curl -fsSL https://raw.githubusercontent.com/Amanuel-Abu/dyflo/master/remote-bootstrap.sh \
+          curl -fsSL https://raw.githubusercontent.com/Amanuel2x/dyflo/master/remote-bootstrap.sh \
             | bash -s -- --mode ci --runtime "$DYFLO_RUNTIME" --repo "${GITHUB_REPOSITORY}"
 
       - name: Run Dyflo
