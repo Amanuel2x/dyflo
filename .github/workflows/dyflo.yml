@@ -1,0 +1,55 @@
+# Dyflo in CI — route/research tickets on a schedule or on demand.
+#
+# Drop this in your repo as .github/workflows/dyflo.yml. It stands Dyflo up on a
+# fresh runner and routes open tickets into lanes. Extend the final step to run a
+# one-shot research/verify job. Nothing interactive; auth comes from secrets.
+#
+# Required secrets (Settings → Secrets and variables → Actions):
+#   GITHUB_TOKEN        provided automatically by Actions (ticket read + PRs)
+#   ANTHROPIC_API_KEY   if runtime=claude and you launch an agent
+#   CURSOR_API_KEY      if runtime=cursor and you launch an agent
+name: dyflo
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "dyflo command (assign | assign <id> | docs)"
+        default: "assign"
+      runtime:
+        description: "claude | cursor"
+        default: "claude"
+  schedule:
+    - cron: "0 * * * *"   # hourly triage; adjust or remove
+
+jobs:
+  dyflo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Bootstrap Dyflo
+        env:
+          DYFLO_RUNTIME: ${{ github.event.inputs.runtime || 'claude' }}
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/Amanuel-Abu/dyflo/master/remote-bootstrap.sh \
+            | bash -s -- --mode ci --runtime "$DYFLO_RUNTIME" --repo "${GITHUB_REPOSITORY}"
+
+      - name: Run Dyflo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DYFLO_REPO: ${{ github.repository }}
+          DYFLO_RUNTIME: ${{ github.event.inputs.runtime || 'claude' }}
+          # add the key for your runtime if a step launches an agent:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          SRC="$HOME/.dyflo-src"
+          # route open tickets into lanes (safe: read-only, no agent launched)
+          bash "$SRC/dyflo.sh" --assign
+          # to run the research stage on one ticket, uncomment (needs a runtime key):
+          # bash "$SRC/dyflo.sh" --assign "${{ github.event.inputs.command }}"

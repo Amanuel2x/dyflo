@@ -15,24 +15,34 @@
 set -euo pipefail
 
 REPO="${1:?usage: vendor-ponytail.sh <repo-root>}"
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-python3 - "$REPO" <<'PY'
+python3 - "$REPO" "$SELF_DIR" <<'PY'
 import glob, os, sys
 
 repo = sys.argv[1]
+self_dir = sys.argv[2]
 dest = os.path.join(repo, "AGENTS.md")
 BEGIN = "<!-- ponytail:begin (vendored by dyflo) -->"
 END = "<!-- ponytail:end -->"
 
-# Locate ponytail's canonical AGENTS.md — newest installed version, not hardcoded.
+# Locate ponytail's canonical AGENTS.md — newest installed plugin version if present,
+# else the copy bundled with Dyflo (so the autonomous lane gets ponytail discipline on
+# a bare remote box where the plugin isn't installed). Ponytail is MIT-licensed;
+# see dyflo/vendor/ponytail-LICENSE.
 cands = sorted(
     glob.glob(os.path.expanduser("~/.claude/plugins/cache/ponytail/ponytail/*/AGENTS.md")),
     key=os.path.getmtime, reverse=True,
 )
-if not cands:
-    sys.exit("!! ponytail AGENTS.md not found under ~/.claude/plugins/cache/ponytail/.\n"
+bundled = os.path.join(self_dir, "vendor", "ponytail-AGENTS.md")
+if cands:
+    src = cands[0]
+elif os.path.exists(bundled):
+    src = bundled
+    print(f"   (ponytail plugin not found — using the copy bundled with Dyflo)")
+else:
+    sys.exit("!! ponytail AGENTS.md not found (no plugin, no bundled copy).\n"
              f"   Install the ponytail plugin, or copy its AGENTS.md into {dest} manually.")
-src = cands[0]
 block = f"{BEGIN}\n{open(src, encoding='utf-8').read().rstrip()}\n{END}\n"
 
 existing = open(dest, encoding="utf-8").read() if os.path.exists(dest) else ""

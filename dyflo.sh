@@ -127,6 +127,12 @@ case "${1:-}" in
   --docs)      do_docs "${2:-}" ;;
   --check)     do_check ;;
   "" )
+    # No TTY (CI / piped / remote) → don't block on a prompt; show usage and exit.
+    if [ ! -t 0 ]; then
+      echo "Dyflo — no interactive terminal. Use an explicit command:"
+      echo "  dyflo --assign [id] | --self | --docs [focus] | --bootstrap | --check"
+      exit 0
+    fi
     echo "Dyflo — target repo: $REPO_ROOT"
     echo "  1) Assign work   (route tickets into lanes)"
     echo "  2) Do it myself  (equipped interactive session)"

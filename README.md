@@ -99,6 +99,37 @@ check than same-model self-review.
 > Cursor prereqs: the `cursor-agent` CLI (`curl https://cursor.com/install -fsS | bash`)
 > and a signed-in Cursor account (or `CURSOR_API_KEY` for headless/CI).
 
+## Run it in a remote environment (container, cloud VM, CI)
+
+One script goes from a **bare box** to a working Dyflo — no interactive login, auth
+from env vars:
+
+```bash
+# on the remote box, inside your repo:
+curl -fsSL https://raw.githubusercontent.com/Amanuel-Abu/dyflo/master/remote-bootstrap.sh | bash
+```
+
+It installs `uv` + `graphify`, clones/uses Dyflo, installs it for your runtime,
+validates auth, self-checks, and (devbox mode) bootstraps the current repo. Two modes:
+
+```bash
+./remote-bootstrap.sh --mode devbox --runtime cursor   # persistent box you'll work on (default)
+./remote-bootstrap.sh --mode ci     --runtime claude   # lean one-shot for a pipeline
+```
+
+Auth (set what you use — the script warns on missing, never stores/prints secrets):
+
+| Env var | For |
+|---|---|
+| `GITHUB_TOKEN` | ticket adapter + PRs |
+| `ANTHROPIC_API_KEY` | headless `claude` runtime |
+| `CURSOR_API_KEY` | headless `cursor-agent` runtime |
+
+**CI:** a ready workflow is at [`.github/workflows/dyflo.yml`](.github/workflows/dyflo.yml)
+— copy it into your repo, add the secrets, and Dyflo triages tickets on a schedule or
+on demand. No TTY needed anywhere; the launcher detects a non-interactive shell and
+never blocks on a prompt.
+
 ## Wrap a repo
 
 From inside the project you want to run Dyflo on:
@@ -186,6 +217,16 @@ skill/                  the /dyflo Claude Code skill (SKILL.md + references)
   watcher/              /dyflo-watcher — the autonomous lane (engine + generalist/Tessy/Quin briefs)
 docs/adr/               where research writes ADRs (template.md included)
 ```
+
+## Credits
+
+Dyflo composes several open tools — install their plugins for the full experience:
+[Graphify](https://github.com/Graphify-Labs/graphify),
+[ponytail](https://github.com/DietrichGebert/ponytail) (MIT — a copy of its `AGENTS.md`
+is bundled in `dyflo/vendor/` so the autonomous lane works on a bare box; see
+`dyflo/vendor/ponytail-LICENSE`), and
+[TRIP](https://github.com/PiLastDigit/TRIP-workflow). See
+[`docs/EXTERNAL-TOOLS.md`](docs/EXTERNAL-TOOLS.md) for what each does.
 
 ## Non-goals
 
