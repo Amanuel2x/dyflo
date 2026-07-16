@@ -1,77 +1,100 @@
-# Dyflo
+<h1 align="center">Dyflo</h1>
 
-A repository-agnostic hybrid dev loop. Point it at **any** project and it routes
-incoming tickets into two lanes:
+<p align="center"><b>A repository-agnostic hybrid dev loop.</b><br>
+Point it at any repo. It routes tickets into an <b>autonomous lane</b> (headless agents, one ticket → one PR) or a <b>human-in-the-loop lane</b> (research → your approval → gated build). Runs on <b>Claude Code</b> or <b>Cursor</b>, locally or in any <b>remote environment</b>.</p>
 
-- **Autonomous** — small, mundane, labeled `auto` → a headless watcher does the
-  ticket, opens a PR, exits. No human.
-- **HITL** — big or risky, labeled `hitl` (or unlabeled) → a **research stage**
-  maps the system, computes **blast radius**, picks an **architecture pattern**,
-  and emits a **draft ADR** you approve. Then a human-gated plan → implement →
-  release flow.
+<p align="center">
+  <a href="#quickstart">Quickstart</a> ·
+  <a href="#the-modes">Modes</a> ·
+  <a href="#switching-runtimes-cursor--claude-code">Switch runtime</a> ·
+  <a href="#command-reference">Commands</a> ·
+  <a href="#the-two-lanes">Lanes</a> ·
+  <a href="#configure-it-around-anything">Configure</a> ·
+  <a href="docs/EXTERNAL-TOOLS.md">How it works</a>
+</p>
 
-One launcher (`dyflo`) is the door: from it you **assign** work (hand off a
-ticket, it routes) or **do it yourself** (an interactive session with the codebase
-graph, ponytail, and TRIP all loaded).
+---
+
+## What is Dyflo?
+
+Modern coding agents are powerful but unstructured — you point one at a task and hope. Dyflo is the **structure around the agent**: it decides *which* work goes fully autonomous vs. which needs you in the loop, gives each path the right tools, and keeps a live map of your codebase so decisions are grounded in what the change actually touches.
+
+It composes five proven pieces (a code-graph, a lazy-coding ruleset, an unattended watcher, a human-gated flow, and your choice of models) into **one loop**, and adds the two things none of them provide on their own: a **router** (which lane?) and a **research stage** (what's the blast radius, and what pattern fits?).
 
 ```
-ticket → adapter → ROUTER (by label)
-                     ├── auto ─────────────► AUTONOMOUS lane (watcher: 1 ticket → PR → exit)
-                     └── hitl / unlabeled ─► RESEARCH stage
-                                               │ no pattern needed → relabel auto ─┐
-                                               ▼                                    │
-                                            draft ADR → 👤 approve → /TRIP-1-plan …│
-                                               ▲────────────────────────────────────┘
+ticket ──► ROUTER (by label) ──┬── auto  ──►  AUTONOMOUS lane   (watcher → headless agent → PR → exit)
+                               │
+                               └── hitl  ──►  RESEARCH stage    (blast radius + pattern → draft ADR)
+                                                   │
+                                             👤 you approve ──► plan → implement → release (gated)
 ```
 
-The router **only ever downgrades**. An unlabeled ticket never lands in the
-autonomous lane unattended — it goes through research, which may *downgrade* a
-small change to `auto`, but nothing escalates the other way. That's the one safety
-invariant.
+**One safety invariant:** the router only ever *downgrades*. An unlabeled ticket never lands in the autonomous lane unattended — it goes through research first, which may downgrade a small change to `auto`, but nothing escalates the other way.
 
-## What powers each part
+---
 
-| Part | Tool | Role |
+## Quickstart
+
+**Local (personal machine):**
+
+```bash
+git clone https://github.com/Amanuel-Abu/dyflo.git ~/dyflo && cd ~/dyflo
+./install.sh                    # Claude Code (default)
+#   or:  ./install.sh --runtime cursor
+
+cd /path/to/your/project
+dyflo --bootstrap               # build the graph, hooks, vendor ponytail, write config
+dyflo --assign                  # route open tickets into lanes
+```
+
+**Remote (container / cloud VM / CI) — one command from a bare box:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Amanuel-Abu/dyflo/master/remote-bootstrap.sh | bash
+```
+
+That's the whole thing. Everything below is detail.
+
+---
+
+## Concepts in 60 seconds
+
+| Term | Meaning |
+|---|---|
+| **Runtime** | The coding-agent CLI that actually runs sessions: **Claude Code** (`claude`) or **Cursor** (`cursor-agent`). Dyflo drives either. |
+| **Lane** | Where a ticket goes: **autonomous** (`auto` label, no human) or **HITL** (`hitl`/unlabeled, gated). |
+| **Router** | Label → lane. Deterministic, downgrade-only. |
+| **Research stage** | For HITL tickets: compute blast radius (Graphify), match an architecture pattern (vendored catalog), emit a draft ADR you approve. |
+| **Watcher** | The autonomous lane's engine — polls tickets, launches a headless agent per ticket, one PR, exits, repeats. |
+| **Adapter** | The ticket source (GitHub built-in; Jira/Linear/etc. are one small file each). |
+| **Agent roster** | Generalist coders + two specialists: **Tessy** (writes/reviews tests) and **Quin** (QA, verifies end-to-end). |
+
+---
+
+## Installation
+
+Dyflo installs in layers. Pick the depth you need.
+
+### Prerequisites
+
+| Tool | Needed for | Auto-installed? |
 |---|---|---|
-| Persistent memory + blast radius | [Graphify](https://github.com/Graphify-Labs/graphify) | tree-sitter code graph; `affected`/`path` = "what breaks if I change X" |
-| Pattern selection | vendored catalog | GoF · Fowler PoEAA · microservices.io · Hohpe EIP index; live fallback on a miss |
-| Autonomous loop | `dyflo-watcher` (ships with Dyflo) | polls the source, launches headless `claude -p`, one-ticket-one-PR; generalist + Tessy (tests) + Quin (QA) briefs |
-| Code-writing discipline | [ponytail](https://github.com/DietrichGebert/ponytail) | "lazy senior dev" ruleset, vendored into the repo for the headless lane |
-| Human-gated flow | [TRIP](https://github.com/PiLastDigit/TRIP-workflow) | `/TRIP-1-plan → 2-implement → 3-release`, seeded by the ADR |
+| `python3` (3.10+) | the engine | no (assumed present) |
+| `git` | everything | no |
+| `uv` | installs Graphify | **yes** (installer/bootstrap fetch it) |
+| `graphify` | the code graph | **yes** |
+| `gh` CLI **or** `GITHUB_TOKEN` | GitHub ticket adapter | no |
+| `claude` **or** `cursor-agent` | launching agents | no (install per your license) |
+| ponytail plugin | lazy-coding discipline | optional (a copy is **bundled** for the autonomous lane) |
+| TRIP skills | the HITL lane | optional |
 
-Dyflo itself is the **router** and the **research stage** — the two pieces none
-of those tools provide — plus the glue that makes them one loop.
-
-> **New to these tools?** [`docs/EXTERNAL-TOOLS.md`](docs/EXTERNAL-TOOLS.md)
-> explains each one with a concrete before/after example (e.g. what ponytail turns
-> a bloated cache class into, what Graphify's blast radius looks like).
-
-## Install
+### Local install
 
 ```bash
-git clone <this-repo> ~/dyflo && cd ~/dyflo
-./install.sh              # graphify + MCP + /dyflo skill + `dyflo` on PATH
-```
-
-Prereqs: `uv` (or `pipx`) for Graphify, `gh` for the GitHub adapter, the `claude`
-CLI. The installer fetches Graphify for you. Ponytail and TRIP are optional but
-recommended — install their plugins for the full loop.
-
-Project-scoped skill instead of global:
-
-```bash
-./install.sh --project /path/to/your/project
-```
-
-## Runtimes: Claude Code or Cursor
-
-Dyflo's engine (router, research, catalog, docs, watcher) is a plain Python/shell
-toolkit — it doesn't care which coding-agent runtime drives it. Two are supported:
-
-```bash
-./install.sh                      # Claude Code (default; skills + agents in ~/.claude)
-./install.sh --runtime cursor     # Cursor (rules + commands in .cursor/, MCP in .cursor/mcp.json)
-./install.sh --runtime cursor --project /path/to/repo   # project-scoped Cursor install
+./install.sh                       # Claude Code, global (~/.claude), `dyflo` on PATH
+./install.sh --runtime cursor      # Cursor (.cursor/ rules + commands + mcp.json)
+./install.sh --project /path/repo  # project-scoped instead of global
+./install.sh --no-link             # skip the PATH symlink
 ```
 
 What each install writes:
@@ -85,150 +108,287 @@ What each install writes:
 | Graphify MCP | `claude mcp add` | `.cursor/mcp.json` |
 | Headless agent | `claude -p --dangerously-skip-permissions` | `cursor-agent -p --force --sandbox disabled` |
 
-Pick the runtime per repo via `dyflo.config.json` (`"runtime": "cursor"`), or override
-anywhere with the `DYFLO_RUNTIME` env var. The launcher, the research stage, and the
-watcher all honor it — so the **same repo** can be worked with Claude at home and
-Cursor at work.
-
-**Models.** Cursor exposes whatever your plan offers (`cursor-agent --list-models`).
-Set the agent's model with `DYFLO_MODEL` (e.g. `DYFLO_MODEL=gpt-5`). This also unlocks
-real **maker≠checker**: run the coding agent on one model family and a review pass on
-another (e.g. author with Claude, review with GPT or Gemini) — a stronger independent
-check than same-model self-review.
-
-> Cursor prereqs: the `cursor-agent` CLI (`curl https://cursor.com/install -fsS | bash`)
-> and a signed-in Cursor account (or `CURSOR_API_KEY` for headless/CI).
-
-## Run it in a remote environment (container, cloud VM, CI)
-
-One script goes from a **bare box** to a working Dyflo — no interactive login, auth
-from env vars:
+### Remote install (bare box → ready)
 
 ```bash
-# on the remote box, inside your repo:
-curl -fsSL https://raw.githubusercontent.com/Amanuel-Abu/dyflo/master/remote-bootstrap.sh | bash
+# devbox: full setup on a box you'll work on (default)
+./remote-bootstrap.sh --mode devbox --runtime cursor
+
+# ci: lean one-shot for a pipeline (no PATH symlink, no menu)
+./remote-bootstrap.sh --mode ci --runtime claude --repo owner/name
 ```
 
-It installs `uv` + `graphify`, clones/uses Dyflo, installs it for your runtime,
-validates auth, self-checks, and (devbox mode) bootstraps the current repo. Two modes:
+It installs `uv` + `graphify` from scratch, clones/uses the source, installs Dyflo for the runtime, validates auth env vars (warns, never blocks), runs the self-checks, and in devbox mode bootstraps the current repo.
 
-```bash
-./remote-bootstrap.sh --mode devbox --runtime cursor   # persistent box you'll work on (default)
-./remote-bootstrap.sh --mode ci     --runtime claude   # lean one-shot for a pipeline
-```
-
-Auth (set what you use — the script warns on missing, never stores/prints secrets):
+**Auth on a remote box** (no interactive login) — set what you use:
 
 | Env var | For |
 |---|---|
 | `GITHUB_TOKEN` | ticket adapter + PRs |
-| `ANTHROPIC_API_KEY` | headless `claude` runtime |
-| `CURSOR_API_KEY` | headless `cursor-agent` runtime |
+| `ANTHROPIC_API_KEY` | headless `claude` |
+| `CURSOR_API_KEY` | headless `cursor-agent` |
 
-**CI:** a ready workflow is at [`.github/workflows/dyflo.yml`](.github/workflows/dyflo.yml)
-— copy it into your repo, add the secrets, and Dyflo triages tickets on a schedule or
-on demand. No TTY needed anywhere; the launcher detects a non-interactive shell and
-never blocks on a prompt.
+Secrets are validated for presence only — never stored or printed.
 
-## Wrap a repo
+---
 
-From inside the project you want to run Dyflo on:
+## The modes
+
+Dyflo is intentionally multi-modal. Three independent axes combine into the mode you run:
+
+**Axis 1 — Runtime** (which agent CLI): `claude` · `cursor`
+**Axis 2 — Operation** (what you're doing): `assign` · `self` · `docs` · `watcher` · `bootstrap` · `check`
+**Axis 3 — Environment** (where): local · remote devbox · CI
+
+### Operation modes
+
+| Mode | Command | What it does | Human? |
+|---|---|---|---|
+| **Bootstrap** | `dyflo --bootstrap` | Per-repo setup: graph, re-index hooks, vendor ponytail, write config, create labels | one-time |
+| **Assign (route)** | `dyflo --assign` | Read all open tickets, sort them into `auto`/`hitl` lanes. Read-only, launches nothing | no |
+| **Assign (research)** | `dyflo --assign <id>` | Run the research stage on one HITL ticket → draft ADR or downgrade | reviews ADR |
+| **Self** | `dyflo --self` | Open an equipped interactive session (graph + rules + MCP loaded) and work it yourself | you drive |
+| **Docs** | `dyflo --docs [focus]` | Generate `docs/ARCHITECTURE.md` with Mermaid diagrams from the graph | no |
+| **Watcher** | `python3 <name>-watcher.py` | The autonomous lane: poll `auto` tickets, one headless agent per ticket → PR → exit | no |
+| **Check** | `dyflo --check` | Report the active runtime + run all engine self-checks | no |
+
+### Environment modes
+
+| Environment | Entry | Notes |
+|---|---|---|
+| **Local interactive** | `dyflo <cmd>` | Full experience; the `dyflo` command on your PATH. |
+| **Remote devbox** | `remote-bootstrap.sh --mode devbox` | Persistent cloud box; leaves you a working `dyflo`. |
+| **CI / pipeline** | `remote-bootstrap.sh --mode ci` + [`dyflo.yml`](.github/workflows/dyflo.yml) | Non-interactive, ephemeral, secrets-based auth. No TTY needed — the launcher detects a non-interactive shell and never blocks on a prompt. |
+
+### Putting the axes together — examples
 
 ```bash
-cd /path/to/your/project
-dyflo --bootstrap       # build the graph, install re-index hook, vendor ponytail, write config, ensure labels
+# Personal, Claude, route tickets:
+dyflo --assign
+
+# Work, Cursor, research one big ticket with GPT-5 doing the thinking:
+DYFLO_RUNTIME=cursor DYFLO_MODEL=gpt-5 dyflo --assign 142
+
+# Remote dev box, Cursor, full setup then document the repo:
+./remote-bootstrap.sh --mode devbox --runtime cursor && dyflo --docs
+
+# CI, Claude, hourly triage (via the bundled workflow):
+#   .github/workflows/dyflo.yml  — copy, add secrets, done.
+
+# Autonomous lane at work with a QA agent on GPT and a coder on Claude:
+DYFLO_RUNTIME=cursor DYFLO_MODEL=claude-sonnet-4-6 python3 backend-watcher.py &
+DYFLO_RUNTIME=cursor DYFLO_MODEL=gpt-5             python3 quin-watcher.py &
 ```
 
-Then:
+---
+
+## Switching runtimes (Cursor ⇄ Claude Code)
+
+Dyflo's engine is plain Python/shell — it doesn't care which runtime drives it. Switching is a one-word change, at three possible levels (most specific wins):
+
+**1. Per invocation (env var) — instant, no reinstall:**
 
 ```bash
-dyflo --assign          # route all open tickets into auto / hitl lanes
-dyflo --assign 42       # run the research stage on ticket #42 → draft ADR (or downgrade)
-dyflo --self            # open an equipped interactive session and work it yourself
-dyflo --docs            # document the repo → docs/ARCHITECTURE.md with Mermaid diagrams
-dyflo --docs auth       # same, focused on a subsystem or entry point
-dyflo --check           # run the engine self-checks
+DYFLO_RUNTIME=cursor dyflo --assign     # this run uses Cursor
+DYFLO_RUNTIME=claude dyflo --assign     # this run uses Claude Code
 ```
 
-## Documentation from the graph
+**2. Per repo (config) — sticks for that project:**
 
-`dyflo --docs` runs the **doc-cartographer** agent: it reads the codebase's
-knowledge graph and writes `docs/ARCHITECTURE.md` with Mermaid diagrams generated
-from the *real* structure — a system map (subsystems), a module dependency map, and
-call-flow diagrams per entry point — every claim cited to `file:line`, nothing from
-memory. Diagrams are portable Mermaid (render in GitHub/Obsidian), produced by
-`dyflo/docs/graph_to_mermaid.py` from `graphify-out/graph.json`. Distinct from a
-README refresher: this builds architecture understanding from scratch and is safe to
-re-run as the code evolves (the graph re-indexes on commit).
+```jsonc
+// dyflo.config.json
+{ "adapter": "github", "labels": { "auto": "auto", "hitl": "hitl" }, "runtime": "cursor" }
+```
+
+**3. Per machine (install) — writes the runtime's native config layout:**
+
+```bash
+./install.sh --runtime cursor    # installs .cursor/ rules+commands+mcp
+./install.sh --runtime claude    # installs ~/.claude skills+agents
+```
+
+If you set nothing, Dyflo auto-detects: it uses whichever CLI is on your PATH (`cursor-agent` or `claude`), defaulting to `claude`.
+
+**The point:** the **same repo** can be worked with Claude at home and Cursor at work. The graph, the pattern catalog, the ADRs, the config — all shared. Only the agent that runs the session changes.
+
+### Models & maker ≠ checker
+
+Cursor exposes whatever your plan offers (`cursor-agent --list-models`). Set the agent's model with `DYFLO_MODEL`:
+
+```bash
+DYFLO_MODEL=gpt-5 dyflo --assign 142
+DYFLO_MODEL=gemini-2.5-pro python3 tessy-watcher.py
+```
+
+This unlocks real **maker ≠ checker**: run the coding agent on one model family and the review pass on another (author with Claude, review with GPT or Gemini). Different families catch each other's blind spots far better than same-model self-review — a stronger check than the single-model default.
+
+---
+
+## Command reference
+
+### `dyflo` launcher
+
+```
+dyflo                     interactive menu (assign vs do-it-yourself); no-ops cleanly with no TTY
+dyflo --bootstrap         one-time per-repo setup (graph, hooks, ponytail, config, labels)
+dyflo --assign            route all open tickets into auto/hitl lanes (read-only)
+dyflo --assign <id>       run the research stage on one HITL ticket → draft ADR or downgrade
+dyflo --self              open an equipped interactive session and work it yourself
+dyflo --docs [focus]      document the repo → docs/ARCHITECTURE.md with Mermaid diagrams
+dyflo --check             report runtime + run engine self-checks
+```
+
+Environment variables the launcher honors:
+
+| Var | Effect |
+|---|---|
+| `DYFLO_RUNTIME` | `claude` \| `cursor` — overrides config + auto-detect |
+| `DYFLO_MODEL` | model id passed to the runtime (e.g. `gpt-5`, `claude-sonnet-4-6`) |
+| `DYFLO_REPO` | `owner/name` for the GitHub adapter (else auto-detected from `gh`) |
+| `DYFLO_ADAPTER` | ticket source (default `github`) |
+
+### `install.sh`
+
+```
+--runtime claude|cursor   which runtime to install for (default: auto-detect → claude)
+--project DIR             project-scoped install instead of global
+--no-link                 skip the PATH symlink
+```
+
+### `remote-bootstrap.sh`
+
+```
+--mode devbox|ci          full setup vs lean one-shot (default: devbox)
+--runtime claude|cursor   runtime to install for
+--repo owner/name         target repo (CI)
+--ref BRANCH              Dyflo branch/tag to install (default: master)
+--src DIR                 use a local checkout instead of cloning
+--no-repo-bootstrap       don't `dyflo --bootstrap` the current repo (devbox)
+```
+
+---
+
+## The two lanes
+
+### Autonomous lane (`auto`)
+
+The **watcher** (`dyflo-watcher` skill) polls your ticket source for a label, and when there's work with no open PR of its own, launches a fresh headless session that does exactly one ticket, opens a PR, and exits — then the watcher relaunches it for the next. It self-heals: a failing-CI or `CONFLICTING` PR of its own gets fixed/rebased first.
+
+**The roster** — an agent is a label + a mission brief + its own login:
+
+| Agent | Role | Behavior |
+|---|---|---|
+| **Generalist coders** | scope-agnostic | take a ticket, fix code, open a PR (label scopes the work) |
+| **Tessy** | test author | writes/strengthens tests, **test-only** PRs; never touches product code; files a bug instead of silently fixing; never weakens a test to go green |
+| **Quin** | QA verifier | **exercises** the change end-to-end (runs the app / hits the route); PASS-with-evidence or a bug issue; writes no product code — a green suite is a signal, not a verdict |
+
+Each agent runs isolated (`CLAUDE_CONFIG_DIR` / `CURSOR_CONFIG_DIR`), so different logins/models don't collide. Set up via the `dyflo-watcher` skill; run each as `python3 <name>-watcher.py`.
+
+> **Dual-use warning:** watchers run headless with skip-permissions on whatever account each config dir is logged into. Log in and test-run **one** agent before arming the rest.
+
+### HITL lane (`hitl` / unlabeled) — the research stage
+
+For every HITL ticket, Dyflo:
+
+1. **Blast radius** — `graphify affected "<symbol>"` / `path` over what the ticket touches: how far it ripples, which hotspots (`god_nodes`) are in scope, whether it sits on a boundary.
+2. **Pattern match** — `dyflo/patterns/lookup.py` scores the ticket against the vendored catalog (28 patterns from GoF · Fowler PoEAA · microservices.io · Hohpe EIP), each hit cited to its canonical URL; a miss falls back to live retrieval.
+3. **Security + ponytail gate** — auth/secrets/input-validation tickets stay HITL regardless of size. Otherwise: *does this even need a pattern?* A small local change emits `NO_PATTERN`, gets relabeled `auto`, and drops to the autonomous lane. No ceremony.
+4. **Draft ADR** — otherwise writes `docs/adr/NNN-<slug>.md` (adr.github.io format): context → blast radius (cited `file:line`) → chosen pattern → consequences. **This ADR is both the research output and the thing you approve** — it seeds the plan step.
+
+On approval, the human-gated build (TRIP if installed: plan → implement → release) picks it up, with gates at the plan and the diff. Nothing ships without your sign-off.
+
+---
 
 ## Configure it around anything
 
 `dyflo --bootstrap` writes `dyflo.config.json` in the target repo:
 
-```json
+```jsonc
 {
   "adapter": "github",
-  "labels": { "auto": "auto", "hitl": "hitl" }
+  "labels": { "auto": "auto", "hitl": "hitl" },
+  "runtime": "claude"
 }
 ```
 
-- **Different labels?** Rename `auto`/`hitl` to whatever your team uses.
-- **Different ticket source?** Set `adapter` to another name and drop a
-  `dyflo/adapters/<name>.py` exposing `list_open_tickets(label)` and
-  `set_label(id, label)` that return the normalized envelope
-  `{id, title, body, labels, url}`. GitHub ships built-in; Jira/Linear/flat-file
-  are each one small adapter file — no core changes. See
-  `dyflo/adapters/github.py` as the template.
-- **Different repo for the adapter?** `export DYFLO_REPO=owner/name` (GitHub) or
-  set it per your adapter.
+- **Different labels?** Rename `auto`/`hitl` to whatever your team uses — the router honors it (semantics unchanged).
+- **Different runtime?** Set `"runtime": "cursor"` (or use `DYFLO_RUNTIME`).
+- **Different ticket source?** Set `adapter` and drop a `dyflo/adapters/<name>.py` exposing `list_open_tickets(label)` and `set_label(id, label)` returning the envelope `{id, title, body, labels, url}`. GitHub ships built-in; Jira/Linear/flat-file are each one small file — no core changes. See `dyflo/adapters/github.py` as the template.
+- **Different repo for the adapter?** `export DYFLO_REPO=owner/name`.
 
-## The research stage in detail
+---
 
-For every `hitl`/unlabeled ticket, Dyflo:
+## Documentation from the graph
 
-1. **Blast radius** — `graphify affected "<symbol>"` / `path` over what the ticket
-   touches: how far it ripples, which architectural hotspots (`god_nodes`) are in
-   scope, whether it sits on a boundary to another system.
-2. **Pattern match** — `dyflo/patterns/lookup.py` scores the ticket against the
-   vendored catalog; a hit is cited to its canonical URL, a miss falls back to live
-   retrieval for that ticket only.
-3. **Ponytail gate** — *does this even need a pattern?* A small local change with a
-   tight blast radius emits `NO_PATTERN`, gets relabeled `auto`, and drops to the
-   autonomous lane. No ceremony.
-4. **Draft ADR** — otherwise writes `docs/adr/NNN-<slug>.md` (adr.github.io format):
-   context → decision drivers (the blast radius, cited `file:line`) → the chosen
-   pattern → consequences. **This ADR is both the research output and the artifact
-   you approve** — it seeds `/TRIP-1-plan`.
+`dyflo --docs` runs the **doc-cartographer** agent: it reads the codebase's knowledge graph and writes `docs/ARCHITECTURE.md` with Mermaid diagrams generated from the *real* structure — a system map (subsystems), a module dependency map, and call-flow diagrams per entry point — every claim cited to `file:line`, nothing from memory. Diagrams are portable Mermaid (render in GitHub/Obsidian). Safe to re-run as the code evolves (the graph re-indexes on commit).
+
+---
 
 ## Layout
 
 ```
-dyflo.sh              launcher (symlinked to `dyflo`)
-install.sh              installer
-mcp-server.json         graphify MCP block, for manual registration
-dyflo/                the engine
-  router.py             label → lane (with the no-escalation invariant)
+dyflo.sh                launcher (symlinked to `dyflo`)
+install.sh              local installer (--runtime claude|cursor)
+remote-bootstrap.sh     bare box → ready (--mode devbox|ci)
+mcp-server.json         graphify MCP block for manual registration
+.github/workflows/      dyflo.yml — ready CI workflow
+dyflo/                  the engine (runtime-agnostic Python + shell)
+  router.py             label → lane (no-escalation invariant)
+  runtime.sh            claude|cursor abstraction (rt_headless / rt_interactive / rt_mcp_add)
   adapters/             ticket-source adapters (github built-in) + selfcheck
-  patterns/             catalog.json (4 sources) + lookup.py matcher
+  patterns/             catalog.json (28 patterns, 4 sources) + lookup.py matcher
   docs/                 graph_to_mermaid.py — graph.json → portable Mermaid
   vendor-ponytail.sh    put ponytail's ruleset into the target repo's AGENTS.md
+  vendor/               bundled ponytail AGENTS.md (MIT) — fallback for a bare box
 agents/                 doc-cartographer.md — the documentation agent
-skill/                  the /dyflo Claude Code skill (SKILL.md + references)
+skill/                  the /dyflo skill (SKILL.md + references)
   watcher/              /dyflo-watcher — the autonomous lane (engine + generalist/Tessy/Quin briefs)
-docs/adr/               where research writes ADRs (template.md included)
+docs/adr/               where the research stage writes ADRs (template.md included)
+docs/EXTERNAL-TOOLS.md  what each composed tool does, with before/after examples
 ```
+
+---
+
+## What powers each part
+
+| Part | Tool | Role |
+|---|---|---|
+| Persistent memory + blast radius | [Graphify](https://github.com/Graphify-Labs/graphify) | tree-sitter code graph; `affected`/`path` = "what breaks if I change X" |
+| Pattern selection | vendored catalog | GoF · Fowler PoEAA · microservices.io · Hohpe EIP index; live fallback |
+| Autonomous loop | `dyflo-watcher` (ships with Dyflo) | polls the source, launches headless agents, one-ticket-one-PR; generalist + Tessy + Quin |
+| Code-writing discipline | [ponytail](https://github.com/DietrichGebert/ponytail) | "lazy senior dev" ruleset, vendored into the repo for the headless lane |
+| Human-gated flow | [TRIP](https://github.com/PiLastDigit/TRIP-workflow) | plan → implement → release, seeded by the ADR |
+| Models | Claude Code / Cursor | your choice of runtime and model; enables maker ≠ checker |
+
+Dyflo itself is the **router** and the **research stage** — the two pieces none of those provide — plus the glue that makes them one loop. Full explanations with before/after examples: **[`docs/EXTERNAL-TOOLS.md`](docs/EXTERNAL-TOOLS.md)**.
+
+---
+
+## FAQ
+
+**Do I need all the external tools?** No. Graphify is the one real dependency (the installer fetches it). Ponytail and TRIP are optional — a ponytail copy is bundled for the autonomous lane, and without TRIP the HITL lane still produces the ADR; you just drive the build yourself.
+
+**Does it merge my PRs?** Never. Dyflo dispatches and researches; humans merge. That's a hard non-goal.
+
+**Can it schedule itself (cron/launchd)?** No — scheduling is out of scope by design. The autonomous *loop* is the watcher process you run; the CI workflow is the scheduled entry point if you want one.
+
+**Will the autonomous lane run without a human?** Only for tickets you explicitly labeled `auto` (or that research downgraded). Unlabeled work never runs unattended.
+
+**Cursor caveats?** Confirm your model IDs with `cursor-agent --list-models`; `cursor-agent -p` has been reported to occasionally hang on exit (wrap CI in a timeout).
+
+---
 
 ## Credits
 
 Dyflo composes several open tools — install their plugins for the full experience:
 [Graphify](https://github.com/Graphify-Labs/graphify),
-[ponytail](https://github.com/DietrichGebert/ponytail) (MIT — a copy of its `AGENTS.md`
-is bundled in `dyflo/vendor/` so the autonomous lane works on a bare box; see
-`dyflo/vendor/ponytail-LICENSE`), and
-[TRIP](https://github.com/PiLastDigit/TRIP-workflow). See
-[`docs/EXTERNAL-TOOLS.md`](docs/EXTERNAL-TOOLS.md) for what each does.
+[ponytail](https://github.com/DietrichGebert/ponytail) (MIT — a copy of its `AGENTS.md` is bundled in `dyflo/vendor/` so the autonomous lane works on a bare box; see `dyflo/vendor/ponytail-LICENSE`), and
+[TRIP](https://github.com/PiLastDigit/TRIP-workflow). See [`docs/EXTERNAL-TOOLS.md`](docs/EXTERNAL-TOOLS.md) for what each does.
 
 ## Non-goals
 
-Dyflo never merges PRs, never schedules cron/launchd, and never escalates a
-ticket into unattended execution. It dispatches; humans merge; the watcher loops.
+Dyflo never merges PRs, never schedules cron/launchd, and never escalates a ticket into unattended execution. It dispatches; humans merge; the watcher loops.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
