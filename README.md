@@ -1,21 +1,30 @@
-<h1 align="center">Dyflo</h1>
+<h1 align="center">◆ &nbsp;Dyflo&nbsp; ◆</h1>
 
-<p align="center"><b>A repository-agnostic hybrid dev loop.</b><br>
-Point it at any repo. It routes tickets into an <b>autonomous lane</b> (headless agents, one ticket → one PR) or a <b>human-in-the-loop lane</b> (research → your approval → gated build). Runs on <b>Claude Code</b> or <b>Cursor</b>, locally or in any <b>remote environment</b>.</p>
+<p align="center"><em>Structure for your coding agents.</em></p>
+
+<p align="center"><b>A repository-agnostic hybrid dev loop.</b> Point it at any repo — it routes tickets into an <b>autonomous lane</b> (headless agents, one ticket → one PR) or a <b>human-in-the-loop lane</b> (research → your approval → gated build). Runs on <b>Claude Code</b> or <b>Cursor</b>, locally or in any <b>remote environment</b>.</p>
 
 <p align="center">
-  <a href="#quickstart">Quickstart</a> ·
-  <a href="#the-modes">Modes</a> ·
-  <a href="#switching-runtimes-cursor--claude-code">Switch runtime</a> ·
-  <a href="#command-reference">Commands</a> ·
-  <a href="#the-two-lanes">Lanes</a> ·
-  <a href="#configure-it-around-anything">Configure</a> ·
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License">
+  <img src="https://img.shields.io/badge/runtime-Claude%20Code%20%7C%20Cursor-8A63D2?style=flat-square" alt="Runtimes">
+  <img src="https://img.shields.io/badge/env-local%20%7C%20remote%20%7C%20CI-2ea44f?style=flat-square" alt="Environments">
+  <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/PRs-welcome-ff69b4?style=flat-square" alt="PRs welcome">
+</p>
+
+<p align="center">
+  <a href="#-quickstart">Quickstart</a> ·
+  <a href="#-the-modes">Modes</a> ·
+  <a href="#-switching-runtimes-cursor--claude-code">Switch runtime</a> ·
+  <a href="#-command-reference">Commands</a> ·
+  <a href="#-the-two-lanes">Lanes</a> ·
+  <a href="#-configure-it-around-anything">Configure</a> ·
   <a href="docs/EXTERNAL-TOOLS.md">How it works</a>
 </p>
 
 ---
 
-## What is Dyflo?
+## ✦ What is Dyflo?
 
 Modern coding agents are powerful but unstructured — you point one at a task and hope. Dyflo is the **structure around the agent**: it decides *which* work goes fully autonomous vs. which needs you in the loop, gives each path the right tools, and keeps a live map of your codebase so decisions are grounded in what the change actually touches.
 
@@ -33,7 +42,7 @@ ticket ──► ROUTER (by label) ──┬── auto  ──►  AUTONOMOUS l
 
 ---
 
-## Quickstart
+## ⚡ Quickstart
 
 **Local (personal machine):**
 
@@ -132,7 +141,7 @@ Secrets are validated for presence only — never stored or printed.
 
 ---
 
-## The modes
+## 🎛 The modes
 
 Dyflo is intentionally multi-modal. Three independent axes combine into the mode you run:
 
@@ -182,7 +191,7 @@ DYFLO_RUNTIME=cursor DYFLO_MODEL=gpt-5             python3 quin-watcher.py &
 
 ---
 
-## Switching runtimes (Cursor ⇄ Claude Code)
+## 🔄 Switching runtimes (Cursor ⇄ Claude Code)
 
 Dyflo's engine is plain Python/shell — it doesn't care which runtime drives it. Switching is a one-word change, at three possible levels (most specific wins):
 
@@ -224,7 +233,7 @@ This unlocks real **maker ≠ checker**: run the coding agent on one model famil
 
 ---
 
-## Command reference
+## 📟 Command reference
 
 ### `dyflo` launcher
 
@@ -268,7 +277,7 @@ Environment variables the launcher honors:
 
 ---
 
-## The two lanes
+## 🛣 The two lanes
 
 ### Autonomous lane (`auto`)
 
@@ -299,7 +308,7 @@ On approval, the human-gated build (TRIP if installed: plan → implement → re
 
 ---
 
-## Configure it around anything
+## 🔧 Configure it around anything
 
 `dyflo --bootstrap` writes `dyflo.config.json` in the target repo:
 
