@@ -1,13 +1,17 @@
 """
 {NAME} Watcher — thin config over the shared engine (agent_watcher.py).
 
-Polls {REPO} for open issues labeled `{LABEL}`; launches a headless Claude Code
+Polls {REPO} for open issues labeled `{LABEL}`; launches a headless coding-agent
 session when there is eligible work and no failing PR of its own.
+
+Runtime is set below (claude | cursor). Override without editing this file:
+  DYFLO_RUNTIME=cursor DYFLO_MODEL=gpt-5 python3 {name}-watcher.py
 
 Usage:  python3 {name}-watcher.py   (Ctrl+C to stop)
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -19,8 +23,14 @@ WORK_DIR = Path(__file__).parent
 REPO = "{REPO}"                       # owner/repo — auto-detected at setup
 LABEL = "{LABEL}"
 
-# Each agent gets its OWN config dir so sessions/accounts don't collide.
-CLAUDE_CONFIG_DIR = str(Path.home() / ".claude-{name}")
+# Which headless agent runs the sessions, and which model. Env wins over the
+# defaults so the same watcher runs on Claude (personal) or Cursor (work).
+RUNTIME = os.getenv("DYFLO_RUNTIME", "{RUNTIME}")            # claude | cursor
+MODEL = os.getenv("DYFLO_MODEL", "{MODEL}")                  # e.g. claude-sonnet-4-6 / gpt-5
+
+# Each agent gets its OWN config dir so sessions/accounts don't collide
+# (CLAUDE_CONFIG_DIR for claude, CURSOR_CONFIG_DIR for cursor — the engine picks).
+CONFIG_DIR = str(Path.home() / f".{RUNTIME}-{name}")
 
 INTEGRATION_PROMPT = """
 You are {NAME}. All tagged tickets are closed — this is the INTEGRATION SESSION.
@@ -37,7 +47,9 @@ CONFIG = AgentConfig(
     work_dir=WORK_DIR,
     go_prompt_file=WORK_DIR / "{name}-go.md",
     integration_prompt=INTEGRATION_PROMPT,
-    claude_config_dir=CLAUDE_CONFIG_DIR,
+    runtime=RUNTIME,
+    model=MODEL,
+    config_dir=CONFIG_DIR,
     queue_file=WORK_DIR / "{name}-queue.json",
 )
 

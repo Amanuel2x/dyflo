@@ -37,8 +37,9 @@ class AgentConfig:
     work_dir: Path                               # repo dir the session runs in
     go_prompt_file: Path                         # opening prompt
     integration_prompt: str                      # end-of-sprint verification prompt
-    claude_model: str = "claude-sonnet-4-6"
-    claude_config_dir: str | None = None         # CLAUDE_CONFIG_DIR for the session
+    runtime: str = "claude"                      # "claude" | "cursor" (which headless agent)
+    model: str = "claude-sonnet-4-6"             # model id for the chosen runtime
+    config_dir: str | None = None                # CLAUDE_CONFIG_DIR / CURSOR_CONFIG_DIR isolation
     queue_file: Path | None = None               # optional queue.json (priority)
     banner: str = ""
     art_idle: str = ""
@@ -168,17 +169,30 @@ def _build_prompt(cfg: AgentConfig, tickets: list, failure_context: str | None,
     return go, "\n".join(f"  #{t['number']} — {t['title']}" for t in ordered[:5])
 
 
+def _launch_cmd(cfg: AgentConfig, prompt: str) -> tuple[list[str], dict]:
+    """Build the headless-agent command + env for the configured runtime.
+    claude → `claude -p --dangerously-skip-permissions`;
+    cursor → `cursor-agent -p --force --sandbox disabled` (unattended edits+exec).
+    Each runtime isolates sessions via its own CONFIG_DIR env var."""
+    env = dict(os.environ)
+    if cfg.runtime == "cursor":
+        if cfg.config_dir:
+            env["CURSOR_CONFIG_DIR"] = cfg.config_dir
+        cmd = ["cursor-agent", "-p", "--force", "--sandbox", "disabled",
+               "--model", cfg.model, prompt]
+    else:  # claude (default)
+        if cfg.config_dir:
+            env["CLAUDE_CONFIG_DIR"] = cfg.config_dir
+        cmd = ["claude", "--model", cfg.model, "--dangerously-skip-permissions", "-p", prompt]
+    return cmd, env
+
+
 def launch(cfg: AgentConfig, tickets: list, failure_context: str | None = None,
            custom_prompt: str | None = None):
     prompt, summary = _build_prompt(cfg, tickets, failure_context, custom_prompt)
-    print(f"\n[{_now()}] Launching {cfg.name}:\n{summary}")
-    env = dict(os.environ)
-    if cfg.claude_config_dir:
-        env["CLAUDE_CONFIG_DIR"] = cfg.claude_config_dir
-    return subprocess.Popen(
-        ["claude", "--model", cfg.claude_model, "--dangerously-skip-permissions", "-p", prompt],
-        cwd=str(cfg.work_dir), env=env, start_new_session=True,
-    )
+    print(f"\n[{_now()}] Launching {cfg.name} ({cfg.runtime}):\n{summary}")
+    cmd, env = _launch_cmd(cfg, prompt)
+    return subprocess.Popen(cmd, cwd=str(cfg.work_dir), env=env, start_new_session=True)
 
 
 def run(cfg: AgentConfig):

@@ -27,8 +27,13 @@ ENGINE="$DYFLO_HOME/dyflo"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CONFIG="$REPO_ROOT/dyflo.config.json"
 
+# runtime abstraction (claude|cursor) — provides rt_interactive / rt_headless
+. "$ENGINE/runtime.sh"
+
 cfg() { [ -f "$CONFIG" ] && python3 -c "import json;print(json.load(open('$CONFIG')).get('$1',''))" 2>/dev/null || echo ""; }
 ADAPTER="$(cfg adapter)"; ADAPTER="${ADAPTER:-github}"
+# runtime from config overrides auto-detection unless env already set it
+[ -z "${DYFLO_RUNTIME_ENV_SET:-}" ] && { _cfg_rt="$(cfg runtime)"; [ -n "$_cfg_rt" ] && DYFLO_RUNTIME="$_cfg_rt"; }
 
 bootstrap() {
   echo "== Dyflo bootstrap — target repo: $REPO_ROOT =="
@@ -47,7 +52,8 @@ bootstrap() {
     cat > "$CONFIG" <<JSON
 {
   "adapter": "github",
-  "labels": { "auto": "auto", "hitl": "hitl" }
+  "labels": { "auto": "auto", "hitl": "hitl" },
+  "runtime": "$DYFLO_RUNTIME"
 }
 JSON
     echo "-- wrote $CONFIG (edit adapter/labels as needed)"
@@ -66,7 +72,8 @@ JSON
 do_self() {
   echo "== equipped interactive session (Graphify + ponytail + TRIP loaded) =="
   [ -f "$REPO_ROOT/graphify-out/graph.json" ] || echo "  (tip: run dyflo.sh --bootstrap first so the graph exists)"
-  exec claude   # ponytail active via session hooks; graphify MCP + TRIP skills available
+  echo "   runtime: $DYFLO_RUNTIME"
+  rt_interactive   # graphify MCP + rules/skills loaded by the runtime
 }
 
 do_assign() {
@@ -81,8 +88,8 @@ do_assign() {
     echo "  1. graphify affected/path on the symbols it touches (blast radius)"
     echo "  2. python3 $ENGINE/patterns/lookup.py \"<ticket text>\"  (pattern match)"
     echo "  3. ponytail gate → NO_PATTERN (relabel auto) OR draft ADR → docs/adr/"
-    echo "Then: approve the ADR and run /TRIP-1-plan on it."
-    exec claude -p "/dyflo research the ticket #$id in $REPO_ROOT and produce a draft ADR or downgrade it to the auto lane"
+    echo "Then: approve the ADR and run the plan step."
+    rt_headless "Run the Dyflo research stage on ticket #$id in $REPO_ROOT (see the dyflo rule/skill): compute blast radius via graphify, match a pattern, and produce a draft ADR in docs/adr/ or downgrade the ticket to the auto lane."
   fi
   echo "== routing all open tickets by label (adapter: $ADAPTER) =="
   DYFLO_ADAPTER="$ADAPTER" python3 "$ENGINE/router.py" --adapter "$ADAPTER"
@@ -94,6 +101,7 @@ do_assign() {
 }
 
 do_check() {
+  echo "== runtime: $DYFLO_RUNTIME ($(rt_available && echo "$(rt_bin) installed" || echo "$(rt_bin) NOT on PATH")) =="
   echo "== engine self-checks =="
   python3 "$ENGINE/patterns/lookup.py" --self-check
   ( cd "$ENGINE/adapters" && python3 selfcheck.py )
@@ -109,7 +117,7 @@ do_docs() {
   local focus="${1:-}"
   local msg="Use the doc-cartographer agent to document $REPO_ROOT into docs/ARCHITECTURE.md with Mermaid diagrams generated from the graph."
   [ -n "$focus" ] && msg="$msg Focus on: $focus."
-  exec claude -p "$msg"
+  rt_headless "$msg"
 }
 
 case "${1:-}" in

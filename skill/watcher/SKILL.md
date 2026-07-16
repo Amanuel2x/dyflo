@@ -37,7 +37,7 @@ Ask: which roles, which label per role, and does any role span a second repo. Ea
 Copy `templates/agent_watcher.py` (in this skill) to the repo, unchanged — it's already generic. Read it so you understand the `AgentConfig` contract.
 
 ### Step 4 — Write each agent's config, go-prompt, queue
-Use `templates/watcher.py.tmpl` + `templates/queue.json.tmpl` for every agent, and pick the go-prompt base by role: generalist → `go.md.tmpl`, Tessy → `go-tessy.md.tmpl`, Quin → `go-quin.md.tmpl`. Fill in: name, repo (from Step 1), label, config dir (`~/.claude-<name>`), and stack-specific commands (`{TEST_CMD}`, and `{RUN_CMD}` for Quin — how the app actually runs). **Critical correctness rules baked into the templates — keep them:**
+Use `templates/watcher.py.tmpl` + `templates/queue.json.tmpl` for every agent, and pick the go-prompt base by role: generalist → `go.md.tmpl`, Tessy → `go-tessy.md.tmpl`, Quin → `go-quin.md.tmpl`. Fill in: name, repo (from Step 1), label, `{RUNTIME}` (claude|cursor — matches the repo's `dyflo.config.json`), `{MODEL}` (e.g. `claude-sonnet-4-6`, or `gpt-5`/`gemini-2.5-pro` on Cursor), and stack-specific commands (`{TEST_CMD}`, and `{RUN_CMD}` for Quin — how the app actually runs). The config dir is derived as `~/.{runtime}-<name>` so each agent's account stays isolated. Env overrides everything: `DYFLO_RUNTIME=cursor DYFLO_MODEL=gpt-5 python3 <name>-watcher.py`. **Critical correctness rules baked into the templates — keep them:**
 - `<name>-queue.json` `blocked_by` values are **integers only** (issue numbers). External/prose blockers go in `skip` + `_notes`, never `blocked_by` (non-numeric values crash the parser).
 - The "fix failing PR" path acts ONLY on PRs the agent itself authored (never dependabot or others' PRs).
 - Go-prompts: one ticket per session, branch per issue, evidence (file:line / output) for every claim, never weaken a test to pass, NEVER merge (open PR, stop), mandatory Evidence section in PR body.
@@ -53,8 +53,9 @@ Append the watcher filenames (and config dirs if local) to `.gitignore`.
 ### Step 7 — Hand back the SETUP CHECKLIST (do NOT run these — they're interactive)
 Print clearly, marked as the user's to do:
 1. **GitHub auth** — `gh auth login` (or `export GITHUB_TOKEN=...`) with `repo` + `read:org` scope.
-2. **Claude login per config dir** — for each distinct `CLAUDE_CONFIG_DIR`:
-   `CLAUDE_CONFIG_DIR=~/.claude-<name> claude` → sign in → `/exit`.
+2. **Runtime login per config dir** — for each distinct config dir:
+   - claude: `CLAUDE_CONFIG_DIR=~/.claude-<name> claude` → sign in → `/exit`.
+   - cursor: `CURSOR_CONFIG_DIR=~/.cursor-<name> cursor-agent` → sign in (or set `CURSOR_API_KEY`) → exit.
 3. **Start each watcher** (each in its own terminal): `cd <work_dir> && python3 <name>-watcher.py`.
 4. **Risk** — these run headless, skip-permissions, on the logged-in account; they consume its rate limits and act unattended. **Log in + test-run ONE agent first**, confirm it picks a ticket and opens a branch correctly, before starting the rest.
 

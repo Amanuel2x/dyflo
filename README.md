@@ -63,6 +63,42 @@ Project-scoped skill instead of global:
 ./install.sh --project /path/to/your/project
 ```
 
+## Runtimes: Claude Code or Cursor
+
+Dyflo's engine (router, research, catalog, docs, watcher) is a plain Python/shell
+toolkit — it doesn't care which coding-agent runtime drives it. Two are supported:
+
+```bash
+./install.sh                      # Claude Code (default; skills + agents in ~/.claude)
+./install.sh --runtime cursor     # Cursor (rules + commands in .cursor/, MCP in .cursor/mcp.json)
+./install.sh --runtime cursor --project /path/to/repo   # project-scoped Cursor install
+```
+
+What each install writes:
+
+| | Claude Code | Cursor |
+|---|---|---|
+| Instructions | `~/.claude/skills/dyflo/` | `.cursor/rules/dyflo.mdc` (always-apply) |
+| Watcher | `~/.claude/skills/dyflo-watcher/` | `.cursor/rules/dyflo-watcher.mdc` |
+| Doc agent | `~/.claude/agents/doc-cartographer.md` | `.cursor/rules/doc-cartographer.mdc` |
+| Commands | Claude slash commands | `.cursor/commands/dyflo-research.md`, `dyflo-docs.md` |
+| Graphify MCP | `claude mcp add` | `.cursor/mcp.json` |
+| Headless agent | `claude -p --dangerously-skip-permissions` | `cursor-agent -p --force --sandbox disabled` |
+
+Pick the runtime per repo via `dyflo.config.json` (`"runtime": "cursor"`), or override
+anywhere with the `DYFLO_RUNTIME` env var. The launcher, the research stage, and the
+watcher all honor it — so the **same repo** can be worked with Claude at home and
+Cursor at work.
+
+**Models.** Cursor exposes whatever your plan offers (`cursor-agent --list-models`).
+Set the agent's model with `DYFLO_MODEL` (e.g. `DYFLO_MODEL=gpt-5`). This also unlocks
+real **maker≠checker**: run the coding agent on one model family and a review pass on
+another (e.g. author with Claude, review with GPT or Gemini) — a stronger independent
+check than same-model self-review.
+
+> Cursor prereqs: the `cursor-agent` CLI (`curl https://cursor.com/install -fsS | bash`)
+> and a signed-in Cursor account (or `CURSOR_API_KEY` for headless/CI).
+
 ## Wrap a repo
 
 From inside the project you want to run Dyflo on:
