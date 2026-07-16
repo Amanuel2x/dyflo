@@ -86,6 +86,8 @@ def main() -> int:
     ap.add_argument("--adapter", default=os.getenv("DYFLO_ADAPTER", "github"))
     ap.add_argument("--label", default=None, help="filter tickets by label at the source")
     ap.add_argument("--repo", default=None, help="sets $DYFLO_REPO for the adapter")
+    ap.add_argument("--json", action="store_true",
+                    help="emit the routed lanes as JSON (for the launcher's ticket picker)")
     ap.add_argument("--self-check", action="store_true")
     args = ap.parse_args()
 
@@ -96,6 +98,10 @@ def main() -> int:
         os.environ["DYFLO_REPO"] = args.repo
 
     lanes = route(args.adapter, args.label)
+    if args.json:
+        import json as _json
+        print(_json.dumps(lanes))
+        return 0
     for lane, tickets in lanes.items():
         print(f"\n{lane.upper()} lane — {len(tickets)} ticket(s):")
         for t in tickets:

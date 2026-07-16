@@ -286,14 +286,24 @@ This unlocks real **maker ≠ checker**: run the coding agent on one model famil
 ### `dyflo` launcher
 
 ```
-dyflo                     interactive menu (assign vs do-it-yourself); no-ops cleanly with no TTY
+dyflo                     persistent interactive menu (assign/research/self/docs/status/adr/check);
+                          shows runtime+model+repo, returns to the menu after each action;
+                          no-ops cleanly with no TTY
 dyflo --bootstrap         one-time per-repo setup (graph, hooks, ponytail, config, labels)
-dyflo --assign            route all open tickets into auto/hitl lanes (read-only)
+dyflo --assign            route all open tickets into auto/hitl lanes; then pick one (H<n> to
+                          research a HITL ticket, A<n> to preview an auto one) — reuses the same
+                          routing, no re-fetch
 dyflo --assign <id>       run the research stage on one HITL ticket → draft ADR or downgrade
 dyflo --self              open an equipped interactive session and work it yourself
 dyflo --docs [focus]      document the repo → docs/ARCHITECTURE.md with Mermaid diagrams
+dyflo --status            per *-watcher.py: running? label, queue depth, last logs, your open PRs,
+                          and the tail of the event log
+dyflo --adr [n [approve|reject]]   list ADRs with parsed status; approve/reject flips the Status
+                          line, and approve prints (or offers to run) the seeded TRIP plan step
 dyflo --check             report runtime + run engine self-checks
 ```
+
+Every headless run tees its output to `~/.dyflo/logs/<timestamp>-<op>.log`; watcher outcomes append to `~/.dyflo/events.jsonl` (read by `--status`).
 
 Environment variables the launcher honors:
 
@@ -303,6 +313,9 @@ Environment variables the launcher honors:
 | `DYFLO_MODEL` | model id passed to the runtime (e.g. `gpt-5`, `claude-sonnet-4-6`) |
 | `DYFLO_REPO` | `owner/name` for the GitHub adapter (else auto-detected from `gh`) |
 | `DYFLO_ADAPTER` | ticket source (default `github`) |
+| `DYFLO_ATTENDED` | `1` → run a would-be-headless session **interactively** (no `-p` / no `--force`) so you can watch and steer it |
+| `DYFLO_NOTIFY_CMD` | if set, each watcher event line is piped to it (wire up Slack/ntfy without any coupling) |
+| `DYFLO_STATE_DIR` | where logs + `events.jsonl` live (default `~/.dyflo`) |
 
 ### `install.sh`
 
@@ -390,8 +403,11 @@ remote-bootstrap.sh     bare box → ready (--mode devbox|ci)
 mcp-server.json         graphify MCP block for manual registration
 .github/workflows/      dyflo.yml — ready CI workflow
 dyflo/                  the engine (runtime-agnostic Python + shell)
-  router.py             label → lane (no-escalation invariant)
-  runtime.sh            claude|cursor abstraction (rt_headless / rt_interactive / rt_mcp_add)
+  router.py             label → lane (no-escalation invariant); --json for the picker
+  runtime.sh            claude|cursor abstraction (rt_headless child+log / rt_exec_interactive / rt_mcp_add)
+  adr.py                list/gate ADRs — parse status, approve/reject, seed the TRIP plan step
+  status.py             --status: watcher liveness, queue depth, logs, open PRs, events (via gh)
+  events.py             ~/.dyflo/events.jsonl writer/reader + optional DYFLO_NOTIFY_CMD pipe
   adapters/             ticket-source adapters (github built-in) + selfcheck
   patterns/             catalog.json (28 patterns, 4 sources) + lookup.py matcher
   docs/                 graph_to_mermaid.py — graph.json → portable Mermaid

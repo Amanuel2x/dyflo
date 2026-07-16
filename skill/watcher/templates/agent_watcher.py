@@ -20,13 +20,39 @@ import time
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 
 POLL_INTERVAL = 60          # seconds between polls
 COOLDOWN_SECONDS = 120      # min gap between launches (avoid thrash)
 GITHUB_API = "https://api.github.com"
+
+
+def _record_event(agent: str, ticket, outcome: str, pr_url: str = "") -> None:
+    """Append one line to ~/.dyflo/events.jsonl so `dyflo --status` can see what the
+    autonomous lane did. Standalone (no engine import — this template runs from the
+    repo root): if the engine's events.py is importable we reuse it, else we inline
+    the same append + optional DYFLO_NOTIFY_CMD pipe. Best-effort — never fatal."""
+    try:
+        state = Path(os.getenv("DYFLO_STATE_DIR", str(Path.home() / ".dyflo")))
+        ev = {
+            "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "agent": agent,
+            "ticket": str(ticket) if ticket is not None else "",
+            "outcome": outcome,
+            "pr_url": pr_url or "",
+        }
+        line = json.dumps(ev, ensure_ascii=False)
+        state.mkdir(parents=True, exist_ok=True)
+        with (state / "events.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+        cmd = os.getenv("DYFLO_NOTIFY_CMD")
+        if cmd:
+            subprocess.run(cmd, shell=True, input=line + "\n", text=True,
+                           timeout=10, check=False)
+    except Exception:
+        pass  # feedback is best-effort; the agent's work is the real output
 
 
 @dataclass
@@ -195,6 +221,30 @@ def launch(cfg: AgentConfig, tickets: list, failure_context: str | None = None,
     return subprocess.Popen(cmd, cwd=str(cfg.work_dir), env=env, start_new_session=True)
 
 
+def _my_open_pr_numbers(cfg: AgentConfig) -> set[int]:
+    """Open PR numbers authored by the auth'd login on this repo (best-effort)."""
+    me = _current_login()
+    if not me:
+        return set()
+    try:
+        return {pr["number"] for pr in get_open_prs(cfg)
+                if (pr.get("user") or {}).get("login") == me}
+    except Exception:
+        return set()
+
+
+def _my_open_prs(cfg: AgentConfig) -> dict[int, str]:
+    me = _current_login()
+    if not me:
+        return {}
+    try:
+        return {pr["number"]: pr.get("html_url", "")
+                for pr in get_open_prs(cfg)
+                if (pr.get("user") or {}).get("login") == me}
+    except Exception:
+        return {}
+
+
 def run(cfg: AgentConfig):
     if cfg.banner:
         print(cfg.banner)
@@ -204,6 +254,8 @@ def run(cfg: AgentConfig):
     proc = None
     last_launch = 0.0
     last_state: str | None = None
+    prs_at_launch: set[int] = set()   # agent's open PRs when the current session started
+    ticket_at_launch = None           # top eligible ticket the session was aimed at
 
     def announce(state: str, msg: str, art: str = ""):
         nonlocal last_state
@@ -219,7 +271,19 @@ def run(cfg: AgentConfig):
             if proc is not None and proc.poll() is not None:
                 last_state = None
                 print(f"[{_now()}] {cfg.name} session ended (exit {proc.returncode}).")
+                # feedback: did the session open a new PR of ours? Record either way.
+                try:
+                    now_prs = _my_open_prs(cfg)
+                    new_nums = set(now_prs) - prs_at_launch
+                    if new_nums:
+                        for num in sorted(new_nums):
+                            _record_event(cfg.name, ticket_at_launch, "pr_opened", now_prs.get(num, ""))
+                    else:
+                        _record_event(cfg.name, ticket_at_launch, "session_ended")
+                except Exception:
+                    pass
                 proc = None
+                ticket_at_launch = None
             running = proc is not None
             cooldown_ok = (time.time() - last_launch) > COOLDOWN_SECONDS
 
@@ -240,6 +304,8 @@ def run(cfg: AgentConfig):
                     time.sleep(POLL_INTERVAL); continue
                 if failing_pr:
                     last_state = None
+                    prs_at_launch = _my_open_pr_numbers(cfg)
+                    ticket_at_launch = failing_pr["number"]
                     proc = launch(cfg, tickets, failure_context=failing_out); last_launch = time.time()
                     announce("working", f"{cfg.name} fixing its failing PR #{failing_pr['number']}.", cfg.art_working)
                     time.sleep(POLL_INTERVAL); continue
@@ -251,6 +317,8 @@ def run(cfg: AgentConfig):
                 announce("working", f"{cfg.name} working — wrapping current ticket.", cfg.art_working)
             elif cooldown_ok:
                 last_state = None
+                prs_at_launch = _my_open_pr_numbers(cfg)
+                ticket_at_launch = eligible[0]["number"] if eligible else None
                 proc = launch(cfg, tickets); last_launch = time.time()
                 announce("working", f"{cfg.name} on the prowl — {len(eligible)} eligible.", cfg.art_working)
             else:
