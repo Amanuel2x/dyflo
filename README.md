@@ -30,15 +30,31 @@ Modern coding agents are powerful but unstructured — you point one at a task a
 
 It composes five proven pieces (a code-graph, a lazy-coding ruleset, an unattended watcher, a human-gated flow, and your choice of models) into **one loop**, and adds the two things none of them provide on their own: a **router** (which lane?) and a **research stage** (what's the blast radius, and what pattern fits?).
 
-```
-ticket ──► ROUTER (by label) ──┬── auto  ──►  AUTONOMOUS lane   (watcher → headless agent → PR → exit)
-                               │
-                               └── hitl  ──►  RESEARCH stage    (blast radius + pattern → draft ADR)
-                                                   │
-                                             👤 you approve ──► plan → implement → release (gated)
+```mermaid
+flowchart LR
+    T([📥 ticket]) --> R{ROUTER<br/>by label}
+
+    R -->|auto| A[AUTONOMOUS lane]:::auto
+    R -->|hitl / unlabeled| S[RESEARCH stage<br/>blast radius + pattern]:::hitl
+
+    A --> W[watcher →<br/>headless agent]:::auto
+    W --> PR([✅ one PR → exit]):::done
+
+    S --> ADR[draft ADR<br/>cited pattern]:::hitl
+    ADR --> H((👤 you<br/>approve / edit)):::gate
+    H --> B[plan → implement<br/>→ release]:::hitl
+    B --> PR2([✅ PR — gated]):::done
+
+    S -. no pattern needed .-> R
+
+    classDef auto fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef hitl fill:#fef9c3,stroke:#ca8a04,color:#713f12;
+    classDef gate fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,font-weight:bold;
+    classDef done fill:#e0f2fe,stroke:#0284c7,color:#075985;
+    linkStyle default stroke-width:2px;
 ```
 
-**One safety invariant:** the router only ever *downgrades*. An unlabeled ticket never lands in the autonomous lane unattended — it goes through research first, which may downgrade a small change to `auto`, but nothing escalates the other way.
+**One safety invariant:** the router only ever *downgrades* (the dotted arrow — research can send a small change back to the `auto` lane). An unlabeled ticket never lands in the autonomous lane unattended; it goes through research first. Nothing ever escalates the other way.
 
 ---
 
@@ -61,6 +77,38 @@ dyflo --assign                  # route open tickets into lanes
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Amanuel2x/dyflo/master/remote-bootstrap.sh | bash
 ```
+
+This goes from *nothing installed* to a working `dyflo` command with **zero interactive prompts** — it fetches `uv` + `graphify`, installs Dyflo for your runtime, validates auth, and self-checks. Add `--runtime cursor` to target Cursor instead of Claude Code.
+
+**On an SSH box (e.g. EC2) — set up once, then run the autonomous fleet under tmux:**
+
+```bash
+# 1. one-time setup on the box
+export CURSOR_API_KEY=...  GITHUB_TOKEN=...          # auth (warns, never stored)
+curl -fsSL https://raw.githubusercontent.com/Amanuel2x/dyflo/master/remote-bootstrap.sh \
+  | bash -s -- --runtime cursor
+
+cd /path/to/your/repo
+dyflo --bootstrap                                    # graph + hooks + config (once per repo)
+
+# 2. day-to-day — one-shot commands run and exit, no tmux needed
+dyflo --assign                                       # route tickets   (read-only)
+dyflo --self                                         # equipped session
+dyflo --docs                                         # architecture docs
+
+# 3. the autonomous lane is a long-running loop — keep it alive under tmux,
+#    one model per window so maker ≠ checker across model families
+tmux new -s dyflo
+DYFLO_RUNTIME=cursor DYFLO_MODEL=claude-sonnet-4-6 python3 backend-watcher.py   # coder
+# Ctrl-b c →
+DYFLO_RUNTIME=cursor DYFLO_MODEL=gpt-5             python3 quin-watcher.py       # QA (Quin)
+# Ctrl-b c →
+DYFLO_RUNTIME=cursor DYFLO_MODEL=gemini-2.5-pro    python3 tessy-watcher.py      # tests (Tessy)
+# Ctrl-b d to detach — the fleet keeps running after you log out.
+# Reconnect any time:  tmux attach -t dyflo
+```
+
+> The one-shot commands (`--assign`, `--self`, `--docs`) don't need tmux — they run and exit. Only the **watcher** loop does, since it polls forever; tmux is what keeps it alive across dropped SSH sessions.
 
 That's the whole thing. Everything below is detail.
 
