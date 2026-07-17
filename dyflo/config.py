@@ -21,8 +21,15 @@ import sys
 from pathlib import Path
 
 CONFIG_NAME = "dyflo.config.json"
-RUNTIMES = ("claude", "cursor")
+BUILTIN_RUNTIMES = ("claude", "cursor")
 DEFAULTS = {"adapter": "github", "labels": {"auto": "auto", "hitl": "hitl"}, "runtime": "claude"}
+
+# A custom runtime is any other agent CLI the user declares (codex, grok, gemini…).
+# Dyflo can't know their flags, so the user supplies them once and the engine stays
+# generic. Required: bin. Optional: headless/interactive flag lists, model_flag,
+# ask_model. ponytail: no validation of the flags themselves — we can't verify a CLI
+# we don't have; a wrong flag surfaces immediately on first run, loudly.
+CUSTOM_RUNTIME_KEYS = ("bin", "headless", "interactive", "model_flag", "ask_model")
 
 
 def path_for(repo: Path) -> Path:
@@ -59,14 +66,57 @@ def get(repo: Path, key: str | None = None):
     return data.get(key, "")
 
 
+def known_runtimes(repo: Path) -> tuple[str, ...]:
+    """Built-ins plus any custom runtimes declared in this repo's config."""
+    custom = tuple((load(repo).get("runtimes") or {}).keys())
+    return BUILTIN_RUNTIMES + custom
+
+
 def set_runtime(repo: Path, value: str) -> str:
     v = value.strip().lower()
-    if v not in RUNTIMES:
-        raise ValueError(f"runtime must be one of {', '.join(RUNTIMES)} (got {value!r})")
+    allowed = known_runtimes(repo)
+    if v not in allowed:
+        raise ValueError(
+            f"runtime must be one of {', '.join(allowed)} (got {value!r}). "
+            f"To use another agent CLI, declare it first: config.py add-runtime <name> <bin> ...")
     data = load(repo)
     data["runtime"] = v
     save(repo, data)
     return v
+
+
+def add_runtime(repo: Path, name: str, bin_: str, *, headless: list[str] | None = None,
+                interactive: list[str] | None = None, model_flag: str = "--model",
+                ask_model: str = "") -> str:
+    """Declare a custom agent CLI (codex, grok, gemini, …) so DYFLO_RUNTIME=<name>
+    works without engine changes. The user owns the flags — we can't verify a CLI we
+    don't have installed."""
+    n = name.strip().lower()
+    if not n:
+        raise ValueError("runtime name cannot be empty")
+    if n in BUILTIN_RUNTIMES:
+        raise ValueError(f"{n!r} is built in; no need to declare it")
+    if not bin_.strip():
+        raise ValueError("runtime bin cannot be empty")
+    data = load(repo)
+    runtimes = dict(data.get("runtimes") or {})
+    entry = {"bin": bin_.strip(), "model_flag": model_flag}
+    if headless:
+        entry["headless"] = list(headless)
+    if interactive:
+        entry["interactive"] = list(interactive)
+    if ask_model:
+        entry["ask_model"] = ask_model
+    runtimes[n] = entry
+    data["runtimes"] = runtimes
+    save(repo, data)
+    return n
+
+
+def get_runtime_spec(repo: Path, name: str) -> dict:
+    """Flags for a runtime: {} for built-ins (engine knows them), the declared entry
+    for a custom one."""
+    return dict((load(repo).get("runtimes") or {}).get(name.strip().lower(), {}))
 
 
 def set_model(repo: Path, value: str) -> str:
@@ -153,15 +203,65 @@ def _self_check() -> None:
         # adapter
         set_adapter(repo, "jira")
         assert get(repo, "adapter") == "jira"
-    print("config self-check OK — defaults, validation, clear, unknown-key preservation, malformed-safe")
+
+    # custom runtimes: declare one, then it becomes selectable
+    with tempfile.TemporaryDirectory() as d:
+        repo = Path(d)
+        assert known_runtimes(repo) == BUILTIN_RUNTIMES
+        try:
+            set_runtime(repo, "codex"); assert False, "undeclared runtime must be rejected"
+        except ValueError as e:
+            assert "declare it first" in str(e), "error must say how to fix it"
+        add_runtime(repo, "codex", "codex", headless=["exec", "--full-auto"],
+                    model_flag="--model", ask_model="gpt-5-mini")
+        assert "codex" in known_runtimes(repo)
+        assert set_runtime(repo, "codex") == "codex", "declared runtime is selectable"
+        spec = get_runtime_spec(repo, "codex")
+        assert spec["bin"] == "codex" and spec["headless"] == ["exec", "--full-auto"]
+        assert spec["ask_model"] == "gpt-5-mini"
+        assert get_runtime_spec(repo, "claude") == {}, "built-ins have no declared spec"
+        try:
+            add_runtime(repo, "claude", "claude"); assert False, "can't redeclare a built-in"
+        except ValueError:
+            pass
+        # declaring a runtime must not disturb other config
+        set_label(repo, "auto", "bot-ok")
+        add_runtime(repo, "grok", "grok")
+        assert get(repo)["labels"]["auto"] == "bot-ok", "add-runtime preserves other keys"
+        assert set(load(repo)["runtimes"]) == {"codex", "grok"}
+
+    # CLI: dash-leading values ("-p") must work via --flag=value. The space form is
+    # an argparse trap ("expected one argument") that silently broke the wizard once.
+    import subprocess
+    with tempfile.TemporaryDirectory() as d:
+        me = str(Path(__file__).resolve())
+        r = subprocess.run([sys.executable, me, "add-runtime", "grok", "--bin=grok",
+                            "--headless=-p", "--model-flag=--model",
+                            "--ask-model=grok-3-mini", f"--dir={d}"],
+                           capture_output=True, text=True)
+        assert r.returncode == 0, f"--flag=value form must work: {r.stderr}"
+        spec = get_runtime_spec(Path(d), "grok")
+        assert spec["headless"] == ["-p"], spec
+        assert spec["ask_model"] == "grok-3-mini", spec
+    print("config self-check OK — defaults, validation, clear, unknown-key preservation, "
+          "malformed-safe, custom runtimes")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Dyflo config")
-    ap.add_argument("action", nargs="?", default="get", choices=["get", "set"])
+    ap.add_argument("action", nargs="?", default="get",
+                    choices=["get", "set", "add-runtime", "runtimes"])
     ap.add_argument("key", nargs="?")
     ap.add_argument("value", nargs="*")
     ap.add_argument("--dir", default=".")
+    # These take values that often START WITH A DASH ("-p", "--model"). argparse
+    # rejects those with the space form, so callers must use --flag=value; the
+    # self-check pins that behavior.
+    ap.add_argument("--bin", default="")
+    ap.add_argument("--headless", default="", help="space-separated flags, e.g. 'exec --full-auto'")
+    ap.add_argument("--interactive", default="")
+    ap.add_argument("--model-flag", default="--model")
+    ap.add_argument("--ask-model", default="")
     ap.add_argument("--self-check", action="store_true")
     args = ap.parse_args()
 
@@ -170,6 +270,26 @@ def main() -> int:
         return 0
 
     repo = Path(args.dir)
+    if args.action == "runtimes":
+        print("\n".join(known_runtimes(repo)))
+        return 0
+
+    if args.action == "add-runtime":
+        if not args.key:
+            print("usage: config.py add-runtime <name> --bin <cli> [--headless '...'] "
+                  "[--interactive '...'] [--model-flag --model] [--ask-model <id>]", file=sys.stderr)
+            return 2
+        try:
+            n = add_runtime(repo, args.key, args.bin or args.key,
+                            headless=args.headless.split() if args.headless else None,
+                            interactive=args.interactive.split() if args.interactive else None,
+                            model_flag=args.model_flag, ask_model=args.ask_model)
+            print(f"declared runtime {n!r} → use it with: DYFLO_RUNTIME={n} (or config.py set runtime {n})")
+        except ValueError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        return 0
+
     if args.action == "get":
         out = get(repo, args.key)
         print(json.dumps(out, indent=2) if isinstance(out, dict) else out)

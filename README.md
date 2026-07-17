@@ -273,6 +273,7 @@ If you set nothing, Dyflo auto-detects: it uses whichever CLI is on your PATH (`
 Dyflo resolves **which agent runs** from what's actually on the machine — you don't have to configure it:
 
 - **Runtime:** explicit `DYFLO_RUNTIME` (env or config) wins; else whichever of `claude` / `cursor-agent` is installed; if **both** are installed and nothing is set, it uses `claude` and prints a one-line note telling you how to switch.
+- **Another agent CLI?** (codex, grok, gemini, …) `dyflo --setup` scans your PATH, shows what it found, and lets you pick "other" — you name the CLI and its flags once, and it's stored in `dyflo.config.json` under `runtimes`. The engine stays generic; no code changes. (Dyflo can't know a third-party CLI's flags, so you supply them — a wrong flag surfaces loudly on first run.)
 - **Model:** with `DYFLO_MODEL` unset, Dyflo passes **no `--model` flag** — so each CLI uses **its own configured default** (whatever model you picked in Claude Code / Cursor). Set `DYFLO_MODEL` only to force a specific one.
 
 `dyflo --check` prints the resolved runtime and model source, so you always know what will run.
@@ -295,6 +296,9 @@ This unlocks real **maker ≠ checker**: run the coding agent on one model famil
 ### `dyflo` launcher
 
 ```
+dyflo --setup             welcome wizard: pick your agent CLI (scans PATH), model, and ticket
+                          source; checks auth; offers to bootstrap. Runs automatically the
+                          first time you open dyflo in a repo with no config.
 dyflo                     persistent interactive menu (assign/research/self/docs/status/adr/check);
                           shows runtime+model+repo, returns to the menu after each action;
                           type a QUESTION at the prompt instead of a number and a small fast

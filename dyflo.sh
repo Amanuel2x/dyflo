@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # dyflo.sh — single entry point for the hybrid autonomous + HITL dev loop.
 #
-#   dyflo.sh                 persistent interactive menu (assign/research/self/docs/status/adr/check)
+#   dyflo.sh                 persistent interactive menu; first run in a repo opens the setup wizard
+#   dyflo.sh --setup         re-run the welcome wizard (agent CLI, model, ticket source)
 #   dyflo.sh --self          do the work yourself (equipped interactive session)
 #   dyflo.sh --assign        route all open tickets into their lanes (+ pick one to act on)
 #   dyflo.sh --assign <id>   run the research stage on one HITL ticket
@@ -69,6 +70,160 @@ JSON
     echo "   (non-github adapter — create the auto/hitl labels on your ticket source manually)"
   fi
   echo "== bootstrap done. Next: dyflo.sh --assign  or  dyflo.sh --self =="
+}
+
+# --- first-run setup wizard --------------------------------------------------
+# Dyflo can't guess three things: which agent CLI you use, which model, and where
+# your tickets live. Ask once, write the answers to dyflo.config.json, never ask
+# again. Fires automatically when there's no config AND we have a TTY (so CI is
+# untouched), or on demand via `dyflo --setup`.
+
+# Agent CLIs we know how to look for. Presence on PATH ≠ works (a broken npm shim
+# still resolves), so we probe rather than trust `command -v` alone.
+_KNOWN_CLIS="claude cursor-agent codex gemini grok aider opencode goose crush"
+
+# does this CLI actually run? (`command -v` finds broken shims too)
+_cli_works() {
+  local bin="$1"
+  command -v "$bin" >/dev/null 2>&1 || return 1
+  "$bin" --version >/dev/null 2>&1 || "$bin" --help >/dev/null 2>&1
+}
+
+# map a binary name → Dyflo runtime name (built-ins), else empty
+_runtime_for_bin() {
+  case "$1" in claude) echo claude ;; cursor-agent) echo cursor ;; *) echo "" ;; esac
+}
+
+do_setup() {
+  if [ ! -t 0 ]; then
+    echo "dyflo --setup needs an interactive terminal."; return 1
+  fi
+  echo
+  echo "  ╭──────────────────────────────────────────────╮"
+  echo "  │  Welcome to Dyflo                            │"
+  echo "  │  Three quick questions, then you're set.     │"
+  echo "  ╰──────────────────────────────────────────────╯"
+  echo
+  echo "  Dyflo routes tickets into two lanes: small work runs autonomously"
+  echo "  (agent → PR → exit), big work gets researched and waits for your"
+  echo "  approval. It never runs unlabeled work unattended."
+  echo
+
+  # ---- 1/3 agent CLI --------------------------------------------------------
+  echo "  1/3  Which agent CLI should run sessions?"
+  local found=() broken=() b
+  for b in $_KNOWN_CLIS; do
+    if command -v "$b" >/dev/null 2>&1; then
+      if _cli_works "$b"; then found+=("$b"); else broken+=("$b"); fi
+    fi
+  done
+  if [ ${#found[@]} -gt 0 ]; then
+    echo "       found on your PATH: ${found[*]}"
+  else
+    echo "       (none found on your PATH — you can still pick one to install later)"
+  fi
+  [ ${#broken[@]} -gt 0 ] && echo "       ⚠ installed but not runnable: ${broken[*]}"
+  echo
+  local i=1 opts=()
+  for b in "${found[@]}"; do echo "       $i) $b"; opts+=("$b"); i=$((i+1)); done
+  echo "       $i) other (name any agent CLI)"; local other_idx=$i
+  echo
+  local pick rt="" custom_bin=""
+  read -rp "       > " pick
+  if [ "$pick" = "$other_idx" ]; then
+    read -rp "       CLI command (e.g. codex, grok): " custom_bin
+    [ -z "$custom_bin" ] && { echo "       (nothing entered — keeping $DYFLO_RUNTIME)"; custom_bin=""; }
+  elif [ -n "$pick" ] && [ "$pick" -ge 1 ] 2>/dev/null && [ "$pick" -lt "$other_idx" ]; then
+    custom_bin="${opts[$((pick-1))]}"
+  else
+    echo "       (skipped — keeping $DYFLO_RUNTIME)"
+  fi
+
+  if [ -n "$custom_bin" ]; then
+    rt="$(_runtime_for_bin "$custom_bin")"
+    if [ -n "$rt" ]; then
+      python3 "$ENGINE/config.py" set runtime "$rt" --dir "$REPO_ROOT" >/dev/null
+      DYFLO_RUNTIME="$rt"
+      echo "       → runtime: $rt"
+    else
+      # Unknown CLI: Dyflo doesn't know its flags, so ask for them once.
+      echo
+      echo "       Dyflo doesn't know $custom_bin's flags — tell it once."
+      echo "       (headless = flags for a one-shot non-interactive run)"
+      local hl ml am
+      read -rp "       headless flags [-p]: " hl; hl="${hl:--p}"
+      read -rp "       model flag [--model]: " ml; ml="${ml:---model}"
+      read -rp "       small model for menu Q&A (Enter = its default): " am
+      # NOTE: use --flag=value. A value like "-p" looks like a flag to argparse
+      # with the space form and blows up ("expected one argument").
+      python3 "$ENGINE/config.py" add-runtime "$custom_bin" --bin="$custom_bin" \
+        --headless="$hl" --model-flag="$ml" --ask-model="$am" --dir="$REPO_ROOT" >/dev/null
+      python3 "$ENGINE/config.py" set runtime "$custom_bin" --dir "$REPO_ROOT" >/dev/null
+      DYFLO_RUNTIME="$custom_bin"
+      echo "       → runtime: $custom_bin (declared; edit dyflo.config.json to tune)"
+    fi
+  fi
+
+  # ---- 2/3 model ------------------------------------------------------------
+  echo
+  echo "  2/3  Which model?"
+  echo "       1) use $DYFLO_RUNTIME's own default  (recommended)"
+  echo "       2) name one (e.g. gpt-5, claude-sonnet-4-6, grok-4)"
+  read -rp "       > " mpick
+  case "$mpick" in
+    2) local mv; read -rp "       model id: " mv
+       if [ -n "$mv" ]; then
+         python3 "$ENGINE/config.py" set model "$mv" --dir "$REPO_ROOT" >/dev/null
+         DYFLO_MODEL="$mv"; echo "       → model: $mv"
+       fi ;;
+    *) python3 "$ENGINE/config.py" set model "" --dir "$REPO_ROOT" >/dev/null
+       echo "       → model: $DYFLO_RUNTIME's default" ;;
+  esac
+
+  # ---- 3/3 tickets ----------------------------------------------------------
+  echo
+  echo "  3/3  Where do your tickets live?"
+  echo "       1) GitHub Issues  (built in)"
+  echo "       2) Jira / other   (needs a small adapter file)"
+  echo "       3) none yet       (I'll use --self and --docs)"
+  read -rp "       > " tpick
+  case "$tpick" in
+    2) echo "       → Jira isn't built in. Drop a file at:"
+       echo "         $ENGINE/adapters/jira.py"
+       echo "         exposing list_open_tickets(label) + set_label(id,label)"
+       echo "         returning {id,title,body,labels,url}. Use github.py as the template."
+       echo "         Then: dyflo ask \"set my adapter to jira\"" ;;
+    3) echo "       → no ticket source. assign/research stay idle; self/docs work." ;;
+    *) python3 "$ENGINE/config.py" set adapter github --dir "$REPO_ROOT" >/dev/null
+       echo "       → tickets: GitHub Issues" ;;
+  esac
+
+  # ---- auth check -----------------------------------------------------------
+  echo
+  echo "  Checking what's ready:"
+  if rt_available; then echo "       ✓ $(rt_bin) on PATH"
+  else echo "       ✗ $(rt_bin) NOT on PATH — install it before assign/research/docs"; fi
+  if command -v gh >/dev/null 2>&1; then
+    local who; who="$(gh api user --jq .login 2>/dev/null || echo "")"
+    if [ -n "$who" ]; then echo "       ✓ gh authed as $who"
+    else echo "       ✗ gh installed but not authed — run:  gh auth login"; fi
+  else
+    echo "       ✗ gh not installed — needed for GitHub tickets + PRs"
+  fi
+  if command -v graphify >/dev/null 2>&1; then echo "       ✓ graphify $(graphify --version 2>/dev/null | head -1)"
+  else echo "       ✗ graphify missing — run:  uv tool install 'graphifyy[mcp]'"; fi
+
+  # ---- offer bootstrap ------------------------------------------------------
+  echo
+  if [ ! -d "$REPO_ROOT/graphify-out" ]; then
+    read -rp "  Bootstrap this repo now (graph, hooks, labels)? [Y/n] " bs
+    case "$bs" in n|N) echo "  (skipped — run dyflo --bootstrap when ready)" ;; *) echo; bootstrap ;; esac
+  fi
+  echo
+  echo "  Setup saved to $REPO_ROOT/dyflo.config.json — you won't be asked again."
+  echo "  Tip: at the menu prompt you can just type a question, e.g."
+  echo "       \"how do I switch to cursor?\" or \"what does assign do?\""
+  echo
 }
 
 do_self() {
@@ -343,13 +498,19 @@ case "${1:-}" in
   --docs)      do_docs "${2:-}" ;;
   --status)    do_status ;;
   --adr)       do_adr "${2:-}" "${3:-}" ;;
+  --setup)     do_setup ;;
   --check)     do_check ;;
   "" )
     # No TTY (CI / piped / remote) → don't block on a prompt; show usage and exit.
     if [ ! -t 0 ]; then
       echo "Dyflo — no interactive terminal. Use an explicit command:"
-      echo "  dyflo --assign [id] | --self | --docs [focus] | --status | --adr [n [approve|reject]] | --bootstrap | --check"
+      echo "  dyflo --setup | --assign [id] | --self | --docs [focus] | --status | --adr [n [approve|reject]] | --bootstrap | --check"
       exit 0
+    fi
+    # First run in this repo (no config yet) → the welcome wizard, then the menu.
+    if [ ! -f "$CONFIG" ]; then
+      do_setup
+      _refresh_runtime_from_config
     fi
     menu_loop ;;
   -h|--help)   sed -n '2,18p' "$0" ;;
