@@ -55,20 +55,24 @@ rt_headless() {
   local prompt="$1" op="${2:-headless}"
   local model_arg=()
   [ -n "${DYFLO_MODEL:-}" ] && model_arg=(--model "$DYFLO_MODEL")
+  # macOS bash 3.2 treats "${empty[@]}" as unbound under `set -u`; this idiom
+  # expands to the flags when set and to NOTHING when empty. ponytail: keep it —
+  # it's the portable way to splice an optional array on old bash.
+  local m=(); [ ${#model_arg[@]} -gt 0 ] && m=("${model_arg[@]}")
   local log; log="$(rt_log_path "$op")"
   local cmd=()
   if [ "${DYFLO_ATTENDED:-}" = "1" ]; then
     # attended: interactive, so you can watch/steer. No -p, no skip-permissions/--force.
     if [ "$DYFLO_RUNTIME" = "cursor" ]; then
-      cmd=(cursor-agent "${model_arg[@]}" "$prompt")
+      cmd=(cursor-agent ${m[@]+"${m[@]}"} "$prompt")
     else
-      cmd=(claude "${model_arg[@]}" "$prompt")
+      cmd=(claude ${m[@]+"${m[@]}"} "$prompt")
     fi
   elif [ "$DYFLO_RUNTIME" = "cursor" ]; then
     # --force + --sandbox disabled = unattended file edits + command execution
-    cmd=(cursor-agent -p --force --sandbox disabled "${model_arg[@]}" "$prompt")
+    cmd=(cursor-agent -p --force --sandbox disabled ${m[@]+"${m[@]}"} "$prompt")
   else
-    cmd=(claude -p --dangerously-skip-permissions "${model_arg[@]}" "$prompt")
+    cmd=(claude -p --dangerously-skip-permissions ${m[@]+"${m[@]}"} "$prompt")
   fi
   echo "   (logging to $log)"
   # tee so the user still sees output live; PIPESTATUS[0] is the agent's real exit.
