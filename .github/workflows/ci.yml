@@ -1,0 +1,32 @@
+# CI — runs Dyflo's own test suite on every PR and push.
+#
+# This is Dyflo testing ITSELF (not the user-facing triage workflow in dyflo.yml).
+# Everything here is offline: no graphify, no gh, no network — just compile,
+# self-checks, and shell linting. Contributors run the same thing locally: ./test.sh
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # the range Dyflo claims to support (README: python 3.10+)
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run the test suite
+        run: ./test.sh

@@ -5,6 +5,7 @@
 <p align="center"><b>A repository-agnostic hybrid dev loop.</b> Point it at any repo — it routes tickets into an <b>autonomous lane</b> (headless agents, one ticket → one PR) or a <b>human-in-the-loop lane</b> (research → your approval → gated build). Runs on <b>Claude Code</b> or <b>Cursor</b>, locally or in any <b>remote environment</b>.</p>
 
 <p align="center">
+  <a href="https://github.com/Amanuel2x/dyflo/actions/workflows/ci.yml"><img src="https://github.com/Amanuel2x/dyflo/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License">
   <img src="https://img.shields.io/badge/runtime-Claude%20Code%20%7C%20Cursor-8A63D2?style=flat-square" alt="Runtimes">
   <img src="https://img.shields.io/badge/env-local%20%7C%20remote%20%7C%20CI-2ea44f?style=flat-square" alt="Environments">
@@ -475,6 +476,16 @@ Dyflo composes several open tools — install their plugins for the full experie
 [Graphify](https://github.com/Graphify-Labs/graphify),
 [ponytail](https://github.com/DietrichGebert/ponytail) (MIT — a copy of its `AGENTS.md` is bundled in `dyflo/vendor/` so the autonomous lane works on a bare box; see `dyflo/vendor/ponytail-LICENSE`), and
 [TRIP](https://github.com/PiLastDigit/TRIP-workflow). See [`docs/EXTERNAL-TOOLS.md`](docs/EXTERNAL-TOOLS.md) for what each does.
+
+## Contributing
+
+Fork it, bend it to your workflow. Before a PR, run the test suite — CI runs the same thing on Python 3.10–3.13:
+
+```bash
+./test.sh    # compile + every module's --self-check + bash -n + shellcheck. Offline, no graphify/gh.
+```
+
+Every engine module carries its own `--self-check`, and `test.sh` **discovers** them, so a new module with a self-check is tested automatically — no CI edits. See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the house style (portable bash for macOS 3.2, the no-escalation invariant, the adapter seam).
 
 ## Non-goals
 

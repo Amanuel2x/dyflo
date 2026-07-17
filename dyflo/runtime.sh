@@ -167,14 +167,14 @@ rt_headless() {
     case "$DYFLO_RUNTIME" in
       cursor) cmd=(cursor-agent ${m[@]+"${m[@]}"} "$prompt") ;;
       claude) cmd=(claude ${m[@]+"${m[@]}"} "$prompt") ;;
-      *) local i; i="$(rt_spec interactive)"; cmd=($(rt_bin) $i ${m[@]+"${m[@]}"} "$prompt") ;;
+      *) local i; i="$(rt_spec interactive)"; cmd=($(rt_bin) $i ${m[@]+"${m[@]}"} "$prompt") ;;  # $i: split on purpose
     esac
   else
     case "$DYFLO_RUNTIME" in
       # --force + --sandbox disabled = unattended file edits + command execution
       cursor) cmd=(cursor-agent -p --force --sandbox disabled ${m[@]+"${m[@]}"} "$prompt") ;;
       claude) cmd=(claude -p --dangerously-skip-permissions ${m[@]+"${m[@]}"} "$prompt") ;;
-      *) local h; h="$(rt_spec headless)"; cmd=($(rt_bin) $h ${m[@]+"${m[@]}"} "$prompt") ;;
+      *) local h; h="$(rt_spec headless)"; cmd=($(rt_bin) $h ${m[@]+"${m[@]}"} "$prompt") ;;  # $h: split on purpose
     esac
   fi
   echo "   (logging to $log)"
