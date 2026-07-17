@@ -297,6 +297,9 @@ This unlocks real **maker ≠ checker**: run the coding agent on one model famil
 ```
 dyflo                     persistent interactive menu (assign/research/self/docs/status/adr/check);
                           shows runtime+model+repo, returns to the menu after each action;
+                          type a QUESTION at the prompt instead of a number and a small fast
+                          model answers it — and can configure Dyflo for you ("switch me to
+                          cursor", "always use gpt-5", "rename the auto label");
                           no-ops cleanly with no TTY
 dyflo --bootstrap         one-time per-repo setup (graph, hooks, ponytail, config, labels)
 dyflo --assign            route all open tickets into auto/hitl lanes; then pick one (H<n> to
@@ -322,6 +325,7 @@ Environment variables the launcher honors:
 | `DYFLO_MODEL` | model id passed to the runtime (e.g. `gpt-5`, `claude-sonnet-4-6`) |
 | `DYFLO_REPO` | `owner/name` for the GitHub adapter (else auto-detected from `gh`) |
 | `DYFLO_ADAPTER` | ticket source (default `github`) |
+| `DYFLO_ASK_MODEL` | model for the menu's ask-line (default `claude-haiku-4-5` on claude; the CLI's own default on cursor) |
 | `DYFLO_ATTENDED` | `1` → run a would-be-headless session **interactively** (no `-p` / no `--force`) so you can watch and steer it |
 | `DYFLO_NOTIFY_CMD` | if set, each watcher event line is piped to it (wire up Slack/ntfy without any coupling) |
 | `DYFLO_STATE_DIR` | where logs + `events.jsonl` live (default `~/.dyflo`) |
@@ -415,6 +419,7 @@ dyflo/                  the engine (runtime-agnostic Python + shell)
   router.py             label → lane (no-escalation invariant); --json for the picker
   runtime.sh            claude|cursor abstraction (rt_headless child+log / rt_exec_interactive / rt_mcp_add)
   adr.py                list/gate ADRs — parse status, approve/reject, seed the TRIP plan step
+  config.py             validated read/write of dyflo.config.json (what the ask-line configures through)
   status.py             --status: watcher liveness, queue depth, logs, open PRs, events (via gh)
   events.py             ~/.dyflo/events.jsonl writer/reader + optional DYFLO_NOTIFY_CMD pipe
   adapters/             ticket-source adapters (github built-in) + selfcheck

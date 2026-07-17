@@ -61,6 +61,39 @@ rt_exec_interactive() {
   if [ "$DYFLO_RUNTIME" = "cursor" ]; then exec cursor-agent; else exec claude; fi
 }
 
+# --- ask-line: answer a question at the menu prompt --------------------------
+# rt_ask "<system brief>" "<question>"
+# The menu's `>` accepts plain English, not just menu numbers. That's Q&A, not a
+# coding session, so it runs on a SMALL/FAST model by default ($DYFLO_ASK_MODEL,
+# default claude-haiku-4-5 on claude; on cursor we let the CLI's own default ride
+# unless you set one) and is bounded to Dyflo's own config surface — it can run
+# `config.py` to actually change settings, but never gets a blanket
+# skip-permissions shell from a stray keystroke at a menu prompt.
+rt_ask_model() {
+  if [ -n "${DYFLO_ASK_MODEL:-}" ]; then echo "$DYFLO_ASK_MODEL"; return; fi
+  # small default only for claude, whose model ids we know; cursor's model list is
+  # plan-dependent, so let its own default ride rather than guess a name.
+  [ "$DYFLO_RUNTIME" = "claude" ] && echo "claude-haiku-4-5" || echo ""
+}
+
+rt_ask() {
+  local brief="$1" question="$2"
+  local model; model="$(rt_ask_model)"
+  local m=(); [ -n "$model" ] && m=(--model "$model")
+  local prompt="$brief
+
+USER QUESTION: $question"
+  if [ "$DYFLO_RUNTIME" = "cursor" ]; then
+    cursor-agent -p --force --sandbox disabled ${m[@]+"${m[@]}"} "$prompt"
+  else
+    # Allowlist: read state + run Dyflo's own config tool. NOT a general shell.
+    # Comma-separated single value — space-separated would swallow the prompt.
+    claude -p ${m[@]+"${m[@]}"} \
+      --allowedTools "Bash(python3:*),Bash(git status:*),Bash(gh auth status:*),Read" \
+      -- "$prompt"
+  fi
+}
+
 # --- launch a one-shot headless session (edits files, runs commands) ----------
 # rt_headless "<prompt>" [op]   [optional: $DYFLO_MODEL selects the model]
 # Runs as a CHILD (not exec) so callers keep running after it — this is what makes

@@ -200,6 +200,7 @@ do_check() {
   python3 "$ENGINE/adr.py" --self-check
   python3 "$ENGINE/events.py" --self-check
   python3 "$ENGINE/status.py" --self-check
+  python3 "$ENGINE/config.py" --self-check
   bash -n "$ENGINE/runtime.sh" && echo "runtime.sh syntax OK"
   bash -n "$ENGINE/vendor-ponytail.sh" && echo "vendor-ponytail.sh syntax OK"
 }
@@ -214,10 +215,87 @@ do_docs() {
   rt_headless "$msg"
 }
 
+# The ask-line: anything typed at `>` that isn't a menu choice is treated as a
+# question. It runs on a small/fast model with Dyflo's REAL state injected, and may
+# configure Dyflo itself (via config.py — validated writes, never a raw JSON edit).
+do_ask() {
+  local q="$1"
+  if ! rt_available; then
+    echo "  ($(rt_bin) isn't on PATH — can't answer questions. Install it, or use the menu numbers.)"
+    return 0
+  fi
+  local cfg_json; cfg_json="$(python3 "$ENGINE/config.py" get --dir "$REPO_ROOT" 2>/dev/null || echo '{}')"
+  local brief
+  brief="You are the built-in helper for Dyflo, a hybrid dev-loop CLI. Answer the user's question about Dyflo concisely (a few lines, plain text, no markdown headers). You are talking to them at Dyflo's interactive menu prompt.
+
+CURRENT STATE (real, do not contradict it):
+  runtime: $DYFLO_RUNTIME   (the coding-agent CLI running sessions)
+  model:   ${DYFLO_MODEL:-<unset — the CLI uses its own default model>}
+  repo:    $REPO_ROOT
+  engine:  $DYFLO_HOME
+  dyflo.config.json: $cfg_json
+
+WHAT DYFLO IS: it routes tickets into two lanes. 'auto' label -> autonomous lane (a
+watcher runs a headless agent, one ticket -> one PR -> exit). 'hitl'/unlabeled ->
+research stage (blast radius via graphify + architecture pattern -> draft ADR you
+approve -> gated build). The router only ever DOWNGRADES; unlabeled work never runs
+unattended.
+
+MENU: 1 assign (route tickets + pick one) | 2 research <id> | 3 self (equipped
+session) | 4 docs (Mermaid from graph) | 5 status (watchers/events) | 6 adr
+(list/approve/reject) | 7 check (self-checks) | q quit.
+FLAGS: dyflo --bootstrap|--assign [id]|--self|--docs [focus]|--status|--adr [n [approve|reject]]|--check
+ENV: DYFLO_RUNTIME (claude|cursor), DYFLO_MODEL (force a model; unset = CLI default),
+DYFLO_ASK_MODEL (model for THIS ask-line), DYFLO_ATTENDED=1 (run a headless action
+interactively), DYFLO_NOTIFY_CMD (pipe watcher events somewhere), DYFLO_STATE_DIR.
+
+YOU MAY CHANGE DYFLO'S CONFIG when the user asks (e.g. 'switch me to cursor',
+'always use gpt-5', 'rename the auto label'). Do it by running, from $REPO_ROOT:
+  python3 $ENGINE/config.py set runtime cursor --dir $REPO_ROOT
+  python3 $ENGINE/config.py set model gpt-5 --dir $REPO_ROOT     (empty value clears it)
+  python3 $ENGINE/config.py set label auto bot-ok --dir $REPO_ROOT
+  python3 $ENGINE/config.py set adapter jira --dir $REPO_ROOT
+Then state plainly what you changed and that it takes effect on the next menu draw.
+Note: config.json sets the default; a DYFLO_RUNTIME/DYFLO_MODEL env var in the
+current shell still overrides it for this session.
+
+RULES:
+- If it's a config change you can make, MAKE IT, then say what you did.
+- If it needs an interactive step you cannot do (gh auth login, claude login,
+  installing a CLI), explain it and give the exact command for them to run.
+- Never claim to have done something you didn't. Never invent state.
+- Be brief. No preamble."
+  echo
+  rt_ask "$brief" "$q"
+  echo
+}
+
+# does this look like a question/request rather than a stray typo?
+_looks_like_question() {
+  case "$1" in
+    *\ *|*\?*) return 0 ;;   # has a space or a question mark → prose
+    *) return 1 ;;
+  esac
+}
+
+# Re-read runtime/model from dyflo.config.json (the ask-line may have just changed
+# them). An explicit env var still wins — it's the more specific choice.
+_refresh_runtime_from_config() {
+  if [ -z "${DYFLO_RUNTIME_ENV_SET:-}" ]; then
+    local rt; rt="$(cfg runtime)"
+    [ -n "$rt" ] && DYFLO_RUNTIME="$rt"
+  fi
+  if [ -z "${DYFLO_MODEL:-}" ]; then
+    local md; md="$(cfg model)"
+    [ -n "$md" ] && DYFLO_MODEL="$md"
+  fi
+}
+
 # persistent interactive loop: run an action, return to the menu, repeat.
 menu_loop() {
   # model: whatever your claude/cursor is configured to use, unless DYFLO_MODEL forces one.
   local model="${DYFLO_MODEL:-$DYFLO_RUNTIME default}"
+  local ask_model; ask_model="$(rt_ask_model)"; ask_model="${ask_model:-$DYFLO_RUNTIME default}"
   while true; do
     echo
     echo "── Dyflo ─────────────────────────────────────────────"
@@ -231,6 +309,7 @@ menu_loop() {
     echo "  6) adr       list / approve / reject ADRs"
     echo "  7) check     engine self-checks"
     echo "  q) quit"
+    echo "  …or just ask: \"how do I switch to cursor?\"  (${ask_model} answers)"
     read -rp "> " choice || { echo; break; }
     case "$choice" in
       1) do_assign ;;
@@ -243,7 +322,16 @@ menu_loop() {
       7) do_check ;;
       q|Q|quit|exit) break ;;
       "" ) : ;;   # empty line → redraw
-      *) echo "  (unrecognized: $choice)" ;;
+      # Anything else that reads like prose → the ask-line. A bare typo still gets
+      # the old hint rather than burning a model call.
+      *) if _looks_like_question "$choice"; then
+           do_ask "$choice"
+           # config may have just changed — re-resolve so the header tells the truth.
+           _refresh_runtime_from_config
+           model="${DYFLO_MODEL:-$DYFLO_RUNTIME default}"
+         else
+           echo "  (unrecognized: $choice — pick 1-7/q, or ask a question in plain English)"
+         fi ;;
     esac
   done
 }
