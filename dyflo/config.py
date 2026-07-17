@@ -47,13 +47,30 @@ def load(repo: Path) -> dict:
         return {}  # malformed → callers fall back to defaults, never crash
 
 
+class ConfigWriteError(Exception):
+    """Couldn't write dyflo.config.json — usually a read-only / root-owned dir.
+    Carries a human-actionable message; callers print it instead of a traceback."""
+
+
 def save(repo: Path, data: dict) -> Path:
-    """Atomic write so a crash mid-write can't leave a truncated config."""
+    """Atomic write so a crash mid-write can't leave a truncated config.
+    Turns a permission/OS error into a clear ConfigWriteError naming the fix —
+    running Dyflo in a dir you can't write to (e.g. /opt/... owned by root) is a
+    common setup, and a raw PermissionError traceback helps no one."""
     p = path_for(repo)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    tmp.replace(p)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        tmp.replace(p)
+    except OSError as e:
+        d = p.parent
+        raise ConfigWriteError(
+            f"can't write {p.name} in {d} ({e.strerror or e}).\n"
+            f"   That directory isn't writable by you. Either:\n"
+            f"     • take ownership:  sudo chown -R $(id -un) {d}\n"
+            f"     • or run dyflo from a directory you can write to."
+        ) from None
     return p
 
 
@@ -243,8 +260,28 @@ def _self_check() -> None:
         spec = get_runtime_spec(Path(d), "grok")
         assert spec["headless"] == ["-p"], spec
         assert spec["ask_model"] == "grok-3-mini", spec
+
+    # A read-only repo dir raises ConfigWriteError (clean message), not a traceback.
+    # This is the /opt/paperclip case: dir owned by root, ec2-user can't write.
+    import os
+    import stat
+    if os.geteuid() != 0:  # root ignores dir perms, so this check is meaningless as root
+        with tempfile.TemporaryDirectory() as d:
+            ro = Path(d) / "locked"
+            ro.mkdir()
+            ro.chmod(stat.S_IREAD | stat.S_IEXEC)  # r-x, no write
+            try:
+                try:
+                    set_runtime(ro, "claude")
+                    assert False, "write to a read-only dir must fail"
+                except ConfigWriteError as e:
+                    assert "chown" in str(e) and "isn't writable" in str(e), \
+                        "error must name an actionable fix"
+            finally:
+                ro.chmod(stat.S_IRWXU)  # restore so tempdir cleanup works
+
     print("config self-check OK — defaults, validation, clear, unknown-key preservation, "
-          "malformed-safe, custom runtimes")
+          "malformed-safe, custom runtimes, read-only-dir graceful error")
 
 
 def main() -> int:
@@ -285,6 +322,9 @@ def main() -> int:
                             interactive=args.interactive.split() if args.interactive else None,
                             model_flag=args.model_flag, ask_model=args.ask_model)
             print(f"declared runtime {n!r} → use it with: DYFLO_RUNTIME={n} (or config.py set runtime {n})")
+        except ConfigWriteError as e:
+            print(f"dyflo: {e}", file=sys.stderr)
+            return 1
         except ValueError as e:
             print(f"error: {e}", file=sys.stderr)
             return 1
@@ -316,6 +356,9 @@ def main() -> int:
         else:
             print(f"unknown key {args.key!r}; use runtime|model|adapter|label", file=sys.stderr)
             return 2
+    except ConfigWriteError as e:
+        print(f"dyflo: {e}", file=sys.stderr)
+        return 1
     except (ValueError, IndexError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1

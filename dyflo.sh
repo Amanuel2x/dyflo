@@ -98,6 +98,18 @@ do_setup() {
   if [ ! -t 0 ]; then
     echo "dyflo --setup needs an interactive terminal."; return 1
   fi
+  # Preflight: the wizard writes dyflo.config.json in the repo root. If we can't
+  # write there (e.g. /opt/... owned by root), say so NOW — not after 3 questions.
+  if ! ( : > "$REPO_ROOT/.dyflo-writetest" ) 2>/dev/null; then
+    echo
+    echo "  ✗ Can't write to $REPO_ROOT"
+    echo "    Dyflo saves its config here, but this directory isn't writable by $(id -un)."
+    echo "    Fix it one of these ways, then re-run dyflo:"
+    echo "      • take ownership:   sudo chown -R $(id -un) \"$REPO_ROOT\""
+    echo "      • or run dyflo from a directory you own (e.g. a repo under \$HOME)"
+    return 1
+  fi
+  rm -f "$REPO_ROOT/.dyflo-writetest" 2>/dev/null
   echo
   echo "  ╭──────────────────────────────────────────────╮"
   echo "  │  Welcome to Dyflo                            │"
