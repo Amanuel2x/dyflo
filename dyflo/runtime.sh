@@ -9,11 +9,28 @@
 # .cursor/mcp.json) and the Claude Code CLI.
 
 # --- select runtime -----------------------------------------------------------
+# Resolve which coding-agent CLI runs sessions, from what's actually on the machine:
+#   1. explicit $DYFLO_RUNTIME (env or config) always wins
+#   2. only one of claude / cursor-agent installed → use it
+#   3. BOTH installed, nothing chosen → default claude, but say so once so you can
+#      switch (no silent hardcoded winner)
+#   4. neither installed yet → claude (the install target)
+# The MODEL is deliberately NOT chosen here: with $DYFLO_MODEL unset we pass no
+# --model flag, so each CLI uses its OWN configured default (whatever model you
+# picked in claude / cursor). Set $DYFLO_MODEL to force a specific one (e.g. gpt-5).
 rt_detect() {
   if [ -n "${DYFLO_RUNTIME:-}" ]; then echo "$DYFLO_RUNTIME"; return; fi
-  if command -v claude >/dev/null 2>&1; then echo "claude"; return; fi
-  if command -v cursor-agent >/dev/null 2>&1; then echo "cursor"; return; fi
-  echo "claude"  # default target if neither is installed yet
+  local have_claude=0 have_cursor=0
+  command -v claude       >/dev/null 2>&1 && have_claude=1
+  command -v cursor-agent >/dev/null 2>&1 && have_cursor=1
+  if [ "$have_claude" = 1 ] && [ "$have_cursor" = 1 ]; then
+    # ambiguous — say which we picked so you can switch (runs once: rt_detect is
+    # called a single time per invocation, at source).
+    echo "dyflo: both claude and cursor found; using claude (set DYFLO_RUNTIME=cursor to switch)" >&2
+    echo "claude"; return
+  fi
+  [ "$have_cursor" = 1 ] && { echo "cursor"; return; }
+  echo "claude"  # only claude, or neither yet (the install target)
 }
 DYFLO_RUNTIME="$(rt_detect)"
 

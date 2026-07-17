@@ -268,6 +268,15 @@ If you set nothing, Dyflo auto-detects: it uses whichever CLI is on your PATH (`
 
 **The point:** the **same repo** can be worked with Claude at home and Cursor at work. The graph, the pattern catalog, the ADRs, the config — all shared. Only the agent that runs the session changes.
 
+### Runtime & model resolution
+
+Dyflo resolves **which agent runs** from what's actually on the machine — you don't have to configure it:
+
+- **Runtime:** explicit `DYFLO_RUNTIME` (env or config) wins; else whichever of `claude` / `cursor-agent` is installed; if **both** are installed and nothing is set, it uses `claude` and prints a one-line note telling you how to switch.
+- **Model:** with `DYFLO_MODEL` unset, Dyflo passes **no `--model` flag** — so each CLI uses **its own configured default** (whatever model you picked in Claude Code / Cursor). Set `DYFLO_MODEL` only to force a specific one.
+
+`dyflo --check` prints the resolved runtime and model source, so you always know what will run.
+
 ### Models & maker ≠ checker
 
 Cursor exposes whatever your plan offers (`cursor-agent --list-models`). Set the agent's model with `DYFLO_MODEL`:

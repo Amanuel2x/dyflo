@@ -187,6 +187,11 @@ do_adr() {
 
 do_check() {
   echo "== runtime: $DYFLO_RUNTIME ($(rt_available && echo "$(rt_bin) installed" || echo "$(rt_bin) NOT on PATH")) =="
+  if [ -n "${DYFLO_MODEL:-}" ]; then
+    echo "== model: $DYFLO_MODEL (from DYFLO_MODEL) =="
+  else
+    echo "== model: $DYFLO_RUNTIME's own default (set DYFLO_MODEL to force one, e.g. gpt-5) =="
+  fi
   echo "== engine self-checks =="
   python3 "$ENGINE/patterns/lookup.py" --self-check
   ( cd "$ENGINE/adapters" && python3 selfcheck.py )
@@ -211,7 +216,8 @@ do_docs() {
 
 # persistent interactive loop: run an action, return to the menu, repeat.
 menu_loop() {
-  local model="${DYFLO_MODEL:-(runtime default)}"
+  # model: whatever your claude/cursor is configured to use, unless DYFLO_MODEL forces one.
+  local model="${DYFLO_MODEL:-$DYFLO_RUNTIME default}"
   while true; do
     echo
     echo "── Dyflo ─────────────────────────────────────────────"
