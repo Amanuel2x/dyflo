@@ -3,7 +3,7 @@
   <img src="assets/logo.png" width="480" alt="Dyflo">
 </p>
 
-<h1 align="center">◆ &nbsp;Dyflo&nbsp; ◆</h1>
+<h1 align="center">Dyflo</h1>
 
 <p align="center"><em>Structure for your coding agents.</em></p>
 
